@@ -304,10 +304,17 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
 
     api_key = get_api_key()
     try:
-        skills = fetch_skills_from_neo4j()
-        for member in body.members:
-            if member not in skills:
-                skills[member] = []
+        known_skills = fetch_skills_from_neo4j()
+        if body.members:
+            # Scope assignment to this project's team. Without this, assign_tasks
+            # sees every Developer in the graph (sample data, other projects) and
+            # can hand a task to someone who isn't on this project. Use the
+            # request's members as the roster; keep each one's known skills from
+            # the graph, and default not-yet-onboarded members to no skills.
+            skills = {member: known_skills.get(member, []) for member in body.members}
+        else:
+            # No members supplied — fall back to the full developer pool.
+            skills = known_skills
         assigned = assign_tasks(blueprint, skills, api_key)
         # assign_tasks regenerates the JSON and drops top-level keys it wasn't
         # told about, so re-attach the blueprint's plain-English summary here
