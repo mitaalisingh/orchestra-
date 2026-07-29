@@ -43,6 +43,7 @@ comments, or any text outside the JSON. The JSON must match this exact schema:
       "dependencies": ["T0", "..."],
       "status": "todo",
       "priority": "high" | "medium" | "low",
+      "deadline": "2026-06-15T00:00:00+00:00",
       "project_id": "{project_id}",
       "created_at": "2026-06-02T14:35:00+00:00",
       "updated_at": "2026-06-02T14:35:00+00:00",
@@ -59,6 +60,7 @@ Rules:
 - "dependencies" is an array of task ids this task depends on (use [] if none).
 - "status" must always be "todo".
 - "priority" must be exactly one of: "high", "medium", "low", based on task importance.
+- "deadline" must be an ISO 8601 datetime string. Estimate a realistic deadline for each task starting from today, taking into account task complexity, priority, and dependencies — higher priority and tasks with no dependencies should have earlier deadlines. Spread deadlines across the project timeline so the full project completes within a reasonable timeframe.
 - "project_id" must always be "{project_id}".
 - "project_name" should match the given project name.
 - Prefer the listed tech stack when shaping tasks; cover the full stack needed to ship (UI, APIs, data, AI/ML pieces as relevant).
