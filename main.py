@@ -161,6 +161,7 @@ class BlueprintRequest(BaseModel):
     description: str
     tech_stack: list[str] = []
     members: list[str] = []
+    created_by: str = ""
 
 
 class AssignRequest(BaseModel):
@@ -257,6 +258,7 @@ def push_project_to_backend(
     members: list[str],
     project_id: str,
     summary: str = "",
+    created_by: str = "",
 ) -> bool:
     """POST project details to the Orchestra backend. Returns True on success."""
     backend_url = os.getenv(
@@ -271,7 +273,13 @@ def push_project_to_backend(
                 "tech_stack": tech_stack,
                 "members": members,
                 "id": project_id,
-                "summary": summary,
+                # The backend stores the summary column as "blueprint_summary";
+                # sending it under "summary" is silently dropped (verified live).
+                "blueprint_summary": summary,
+                # created_by is currently ignored by the backend (it doesn't read
+                # it from the body yet) — sent so it populates the moment the
+                # backend honours it; harmless until then.
+                "created_by": created_by,
             },
             timeout=30,
         )
@@ -367,23 +375,35 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
             skills = known_skills
         assigned = assign_tasks(blueprint, skills, api_key)
         # assign_tasks regenerates the JSON and drops top-level keys it wasn't
-        # told about, so re-attach the blueprint's plain-English summary here
-        # rather than hoping the second model preserves it.
-        assigned["summary"] = blueprint.get("summary")
+        # told about, so re-attach the blueprint's plain-English summary AND the
+        # project_id here rather than hoping the second model preserves them.
+        project_id = blueprint.get("project_id", "")
+        summary = blueprint.get("summary", "")
+        assigned["summary"] = summary
+        assigned["project_id"] = project_id
+        # Stamp every task with the project id so the backend links each task row
+        # to its project (task.project_id == project.id). assign_tasks drops the
+        # project_id that blueprint.py set, so without this the tasks land
+        # orphaned (project_id null) and never surface under the project.
+        for task in assigned.get("tasks", []):
+            task["project_id"] = project_id
         ingest_all(assigned.get("tasks", []), skills)
-        try:
-            push_tasks_to_backend(assigned.get("tasks", []))
-        except Exception:
-            pass
+        # Push the project FIRST so its row (with our pinned id) exists before the
+        # tasks reference it — avoids the backend auto-creating a bare stub project.
         try:
             push_project_to_backend(
                 name=name,
                 description=description,
                 tech_stack=tech_stack,
                 members=body.members,
-                project_id=blueprint.get("project_id", ""),
-                summary=assigned.get("summary", ""),
+                project_id=project_id,
+                summary=summary,
+                created_by=body.created_by,
             )
+        except Exception:
+            pass
+        try:
+            push_tasks_to_backend(assigned.get("tasks", []))
         except Exception:
             pass
         global _chroma_indexed
