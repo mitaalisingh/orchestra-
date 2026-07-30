@@ -255,6 +255,7 @@ def push_project_to_backend(
     tech_stack: list[str],
     members: list[str],
     project_id: str,
+    summary: str = "",
 ) -> bool:
     """POST project details to the Orchestra backend. Returns True on success."""
     backend_url = os.getenv(
@@ -269,6 +270,7 @@ def push_project_to_backend(
                 "tech_stack": tech_stack,
                 "members": members,
                 "id": project_id,
+                "summary": summary,
             },
             timeout=30,
         )
@@ -332,6 +334,7 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
                 tech_stack=tech_stack,
                 members=body.members,
                 project_id=blueprint.get("project_id", ""),
+                summary=assigned.get("summary", ""),
             )
         except Exception:
             pass
