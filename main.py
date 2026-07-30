@@ -13,10 +13,11 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from neo4j import GraphDatabase
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
+from google.genai import types
 from pydantic import BaseModel
 
 from assign import assign_tasks, fetch_skills_from_neo4j
-from blueprint import generate_blueprint
+from blueprint import extract_json, generate_blueprint
 from ingest import ingest_all
 from clover import ask_clover, search_top_tasks
 from commit_intel import fetch_live_events, main as run_commit_intel
@@ -280,9 +281,51 @@ def push_project_to_backend(
         return False
 
 
+def validate_description(name: str, description: str, api_key: str) -> str | None:
+    """Return an error reason if the description is not a meaningful software project."""
+    prompt = f"""You are validating whether a project description represents a real, meaningful software project.
+
+Project name:
+\"\"\"{name}\"\"\"
+
+Description:
+\"\"\"{description}\"\"\"
+
+Reject descriptions that are gibberish, random characters, test placeholders (e.g. "test", "asdf", "lorem ipsum"), or too vague to build a software project from.
+
+Return ONLY a single valid JSON object with this schema:
+{{
+  "valid": true | false,
+  "reason": "string"
+}}
+
+Rules:
+- Set "valid" to true only if the description clearly describes a buildable software product or feature.
+- If "valid" is false, "reason" must briefly explain why (one short sentence).
+- If "valid" is true, set "reason" to an empty string.
+- Output JSON only."""
+
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model="gemini-2.5-flash-lite",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            temperature=0.0,
+            response_mime_type="application/json",
+        ),
+    )
+    raw = response.text or ""
+    payload = extract_json(raw)
+    result = json.loads(payload)
+    if result.get("valid"):
+        return None
+    return result.get("reason") or "Description is not a meaningful software project."
+
+
 @app.post("/blueprint", dependencies=[Depends(verify_api_key)])
 def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
     """Generate a task roadmap from a project name, description, and tech stack."""
+    api_key = get_api_key()
     name = body.name.strip()
     description = body.description.strip()
     if not name:
@@ -295,6 +338,12 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
             detail="Description is too long. Maximum 2000 characters allowed.",
         )
 
+    error = validate_description(name, description, api_key)
+    if error:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid project description: {error}"
+        )
+
     tech_stack = [s.strip() for s in body.tech_stack if s and s.strip()]
 
     try:
@@ -304,7 +353,6 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    api_key = get_api_key()
     try:
         known_skills = fetch_skills_from_neo4j()
         if body.members:
