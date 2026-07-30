@@ -291,7 +291,7 @@ Project name:
 Description:
 \"\"\"{description}\"\"\"
 
-Reject descriptions that are gibberish, random characters, test placeholders (e.g. "test", "asdf", "lorem ipsum"), or too vague to build a software project from.
+Reject descriptions that are gibberish, random characters, or obvious test placeholders (e.g. "test", "asdf", "lorem ipsum", "meh", "haha"). Short but genuine descriptions like "a simple to do app" or "a chat app" are valid and must be accepted.
 
 Return ONLY a single valid JSON object with this schema:
 {{
@@ -300,7 +300,7 @@ Return ONLY a single valid JSON object with this schema:
 }}
 
 Rules:
-- Set "valid" to true only if the description clearly describes a buildable software product or feature.
+- Set "valid" to true if the description refers to any real app, tool, or software product — even if brief. Only reject if it is clearly nonsense or a placeholder.
 - If "valid" is false, "reason" must briefly explain why (one short sentence).
 - If "valid" is true, set "reason" to an empty string.
 - Output JSON only."""
