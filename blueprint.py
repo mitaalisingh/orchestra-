@@ -36,11 +36,11 @@ comments, or any text outside the JSON. The JSON must match this exact schema:
   "summary": "string",
   "tasks": [
     {{
-      "id": "T1",
+      "id": "{project_id}-T1",
       "title": "string",
       "track": "string",
       "description": "string",
-      "dependencies": ["T0", "..."],
+      "dependencies": ["{project_id}-T0", "..."],
       "status": "todo",
       "priority": "high" | "medium" | "low",
       "deadline": "2026-06-15T00:00:00+00:00",
@@ -53,7 +53,7 @@ comments, or any text outside the JSON. The JSON must match this exact schema:
 }}
 
 Rules:
-- Use short stable ids like T1, T2, T3 ...
+- Use short stable ids like {project_id}-T1, {project_id}-T2, {project_id}-T3 ... always prefix every task id with the project_id
 - "track" should be automatically chosen based on the type of work involved in each task.
 - Use concise, descriptive track names such as "frontend", "backend", "AI", "mobile", "devops", "database", "design", "qa", "security", etc.
 - Keep track naming consistent across tasks.
