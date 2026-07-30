@@ -268,7 +268,7 @@ def push_project_to_backend(
                 "description": description,
                 "tech_stack": tech_stack,
                 "members": members,
-                "project_id": project_id,
+                "id": project_id,
             },
             timeout=30,
         )
