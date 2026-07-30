@@ -36,11 +36,13 @@ Always be specific — mention actual names, task IDs, titles, and timestamps in
 
 
 # Finds the 3 tasks that best match the user's question using semantic search.
-def search_top_tasks(question: str, api_key: str) -> list[dict]:
+def search_top_tasks(question: str, api_key: str, project_id: str | None = None) -> list[dict]:
     """Find the 3 most relevant tasks using search.py helpers and ChromaDB."""
     tasks = get_all_tasks()
+    if project_id:
+        tasks = [t for t in tasks if t.get("project_id") == project_id]
     if not tasks:
-        raise RuntimeError("No tasks found in assigned.json.")
+        return []
 
     embed_client = genai.Client(api_key=api_key)
     chroma_client = chromadb.EphemeralClient()
@@ -177,9 +179,14 @@ def ask_clover(
     task_context: list[dict],
     api_key: str,
     conversation_history: list[dict] = None,
+    project_id: str | None = None,
 ) -> str:
     """Send retrieved tasks and graph context to Gemini and return an answer."""
     full_graph = fetch_graph()
+    if project_id and full_graph:
+        project_task_ids = {t.get("id") for t in get_all_tasks() if t.get("project_id") == project_id}
+        full_graph["nodes"] = [n for n in full_graph.get("nodes", []) if n.get("id") in project_task_ids or n.get("type") == "developer"]
+        full_graph["edges"] = [e for e in full_graph.get("edges", []) if e.get("source") in project_task_ids or e.get("target") in project_task_ids]
     # Set up the Gemini client and start building the prompt with task data.
     client = genai.Client(api_key=api_key)
     context_json = json.dumps(task_context, indent=2, ensure_ascii=False)
