@@ -391,6 +391,7 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
         summary = blueprint.get("summary", "")
         assigned["summary"] = summary
         assigned["project_id"] = project_id
+        assigned["tech_stack"] = tech_stack
         # Stamp every task with the project id so the backend links each task row
         # to its project (task.project_id == project.id). assign_tasks drops the
         # project_id that blueprint.py set, so without this the tasks land
