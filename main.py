@@ -150,6 +150,11 @@ class BlueprintRequest(BaseModel):
     tech_stack: list[str] = []
     members: list[str] = []
     created_by: str = ""
+    # Optional. When the frontend regenerates an existing project (its "modify"
+    # flow), it passes that project's id here so we overwrite it in place instead
+    # of minting a new one — without this, every modify created a duplicate
+    # project. Omitted/blank for a brand-new project (a fresh id is generated).
+    project_id: str | None = None
 
 
 class AssignRequest(BaseModel):
@@ -350,7 +355,9 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
     tech_stack = [s.strip() for s in body.tech_stack if s and s.strip()]
 
     try:
-        blueprint = generate_blueprint(name, description, tech_stack)
+        blueprint = generate_blueprint(
+            name, description, tech_stack, project_id=body.project_id
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except ValueError as exc:
