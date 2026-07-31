@@ -6,7 +6,6 @@ import re
 from datetime import datetime
 from typing import Any
 
-import chromadb
 import requests
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
@@ -19,15 +18,15 @@ from pydantic import BaseModel
 from assign import assign_tasks, fetch_skills_from_neo4j
 from blueprint import extract_json, generate_blueprint
 from ingest import ingest_all
-from clover import ask_clover, search_top_tasks
+from clover import answer_question
 from commit_intel import fetch_live_events, main as run_commit_intel
 from graph_query import build_reactflow_graph, merge_developer_skills
 from onboarding import build_profile
 from query import get_all_tasks
 from search import (
-    COLLECTION_NAME,
+    ensure_indexed,
     get_embedding,
-    index_tasks,
+    invalidate_index,
 )
 from re_planner import (
     find_blocked_tasks,
@@ -45,10 +44,6 @@ def verify_api_key(x_api_key: str = Header(default=None)) -> None:
 
 load_dotenv()
 
-_chroma_client = None
-_chroma_collection = None
-_chroma_indexed = False
-
 app = FastAPI(title="Orchestra + Clover API")
 
 app.add_middleware(
@@ -58,13 +53,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-async def init_chroma():
-    global _chroma_client, _chroma_collection
-    _chroma_client = chromadb.EphemeralClient()
-    _chroma_collection = _chroma_client.get_or_create_collection(name="orchestra")
-    print("[STARTUP] ChromaDB EphemeralClient initialised")
 
 @app.get("/health")
 def health() -> dict[str, Any]:
@@ -204,18 +192,15 @@ def get_api_key() -> str:
 
 def run_search(question: str, api_key: str, n_results: int = 3) -> list[dict[str, Any]]:
     """Index assigned tasks and return top 3 matches for a question."""
-    global _chroma_indexed
     tasks = get_all_tasks()
     if not tasks:
         raise HTTPException(status_code=404, detail="No tasks found in assigned.json.")
 
     embed_client = genai.Client(api_key=api_key)
-    if not _chroma_indexed:
-        index_tasks(_chroma_collection, embed_client, tasks)
-        _chroma_indexed = True
+    collection = ensure_indexed(embed_client, tasks)
 
     query_embedding = get_embedding(embed_client, question)
-    results = _chroma_collection.query(
+    results = collection.query(
         query_embeddings=[query_embedding],
         n_results=n_results,
         include=["metadatas", "distances"],
@@ -416,8 +401,7 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
             push_tasks_to_backend(assigned.get("tasks", []))
         except Exception:
             pass
-        global _chroma_indexed
-        _chroma_indexed = False
+        invalidate_index()
         return assigned
     except Exception:
         return blueprint
@@ -468,9 +452,11 @@ def clover(body: CloverRequest) -> dict[str, Any]:
     api_key = get_api_key()
 
     try:
-        relevant_tasks = search_top_tasks(body.question.strip(), api_key, project_id=body.project_id)
-        answer = ask_clover(
-            body.question.strip(), relevant_tasks, api_key, body.conversation_history, project_id=body.project_id
+        answer = answer_question(
+            body.question.strip(),
+            api_key,
+            body.conversation_history,
+            project_id=body.project_id,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -773,8 +759,7 @@ def edit_task(task_id: str, body: TaskEditRequest) -> dict[str, Any]:
 
         # Editing title/description changes what Clover + /search embed, so drop
         # the ChromaDB cache to force a re-index on the next semantic query.
-        global _chroma_indexed
-        _chroma_indexed = False
+        invalidate_index()
 
         # Best-effort mirror to the backend (excludes updated_at — the backend
         # stamps its own). No-op until the backend adds a task field PATCH.

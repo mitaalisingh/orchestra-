@@ -3,6 +3,7 @@
 
 import json
 import os
+import threading
 
 import chromadb
 from dotenv import load_dotenv
@@ -77,12 +78,59 @@ def index_tasks(collection, embed_client: genai.Client, tasks: list[dict]) -> No
         )
 
     if ids:
-        collection.add(
+        # upsert (not add) so a re-index updates changed tasks and adds new ones
+        # in place, without tearing down the collection a reader may be querying.
+        collection.upsert(
             ids=ids,
             documents=documents,
             embeddings=embeddings,
             metadatas=metadatas,
         )
+
+
+# ── Shared, cached vector index ───────────────────────────────────────────────
+# Embedding a task is a Gemini network call, so re-embedding every task on every
+# request is the dominant cost of semantic search. We build the index once and
+# reuse it in-memory across requests (both /search and Clover share this), and
+# invalidate it only when tasks actually change (/blueprint, task edits) so the
+# next query re-embeds fresh. index_tasks upserts, so a rebuild updates changed
+# tasks and adds new ones in place — the live collection is never torn down, so a
+# concurrent reader always sees a valid collection. The lock makes the build
+# atomic across the request threadpool (and Clover's own parallel fan-out).
+_chroma_client = None
+_chroma_collection = None
+_indexed = False
+_index_lock = threading.Lock()
+
+
+def _get_collection():
+    """Return the shared collection, creating the client/collection on first use."""
+    global _chroma_client, _chroma_collection
+    if _chroma_collection is None:
+        _chroma_client = chromadb.EphemeralClient()
+        _chroma_collection = _chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+    return _chroma_collection
+
+
+def ensure_indexed(embed_client, tasks: list[dict]):
+    """Return the shared collection with `tasks` embedded into it.
+
+    Re-embeds only when the index was invalidated (or never built); repeat
+    queries reuse the cached embeddings and skip the per-task Gemini calls.
+    """
+    global _indexed
+    with _index_lock:
+        collection = _get_collection()
+        if not _indexed:
+            index_tasks(collection, embed_client, tasks)
+            _indexed = True
+    return collection
+
+
+def invalidate_index() -> None:
+    """Mark the shared index stale so the next query re-embeds."""
+    global _indexed
+    _indexed = False
 
 
 def print_results(query: str, results: dict) -> None:
