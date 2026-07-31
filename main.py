@@ -183,6 +183,15 @@ class TaskStatusRequest(BaseModel):
     status: str
 
 
+class TaskEditRequest(BaseModel):
+    # All optional — a PATCH may touch just one field. Status is intentionally
+    # excluded; it has its own endpoint (PATCH /tasks/{id}/status).
+    title: str | None = None
+    description: str | None = None
+    assigned_to: str | None = None
+    track: str | None = None
+
+
 def get_api_key() -> str:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
@@ -638,6 +647,145 @@ def update_task_status(task_id: str, body: TaskStatusRequest) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found.")
 
         return {"id": record["id"], "status": record["status"]}
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail=f"Graph database error: {exc}"
+        ) from exc
+
+
+def push_task_edit_to_backend(task_id: str, fields: dict[str, Any]) -> bool:
+    """Best-effort: mirror a task field edit to the backend Postgres.
+
+    The backend currently only exposes PATCH /tasks/{id}/status, so a general
+    field PATCH will 404/405 and is swallowed here. This is forward-compatible:
+    the moment the backend adds PATCH /tasks/{id}, edits sync automatically with
+    no change on our side.
+    """
+    backend_url = os.getenv(
+        "BACKEND_URL", "https://orchestra-backend-30fy.onrender.com"
+    )
+    try:
+        response = requests.patch(
+            f"{backend_url}/tasks/{task_id}", json=fields, timeout=30
+        )
+        return response.ok
+    except Exception:
+        return False
+
+
+@app.patch("/tasks/{task_id}", dependencies=[Depends(verify_api_key)])
+def edit_task(task_id: str, body: TaskEditRequest) -> dict[str, Any]:
+    """Manually edit a single task's content in the Neo4j graph.
+
+    Lets a PM fix what Gemini got wrong on one task — title, description, track,
+    and/or assignee — without regenerating the whole roadmap. Reassigning also
+    re-points the (Developer)-[:ASSIGNED_TO]->(Task) edge (not just the
+    t.assigned_to property) so /graph, /tasks, and Clover all stay consistent.
+    Status is not editable here — use PATCH /tasks/{id}/status.
+    """
+    # Collect only the fields the caller actually supplied.
+    fields: dict[str, Any] = {}
+    if body.title is not None:
+        fields["title"] = body.title.strip()
+    if body.description is not None:
+        fields["description"] = body.description.strip()
+    if body.track is not None:
+        fields["track"] = body.track.strip()
+    if body.assigned_to is not None:
+        fields["assigned_to"] = body.assigned_to.strip()
+
+    if not fields:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide at least one of: title, description, track, assigned_to.",
+        )
+    if "assigned_to" in fields and not fields["assigned_to"]:
+        raise HTTPException(status_code=400, detail="assigned_to cannot be blank.")
+
+    fields["updated_at"] = datetime.utcnow().isoformat()
+
+    try:
+        uri = os.getenv("NEO4J_URI")
+        username = os.getenv("NEO4J_USERNAME")
+        password = os.getenv("NEO4J_PASSWORD")
+        database = os.getenv("NEO4J_DATABASE") or None
+        if not all([uri, username, password]):
+            raise RuntimeError(
+                "NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD must be set. "
+                "Add them to a .env file in the project root."
+            )
+
+        driver = GraphDatabase.driver(uri, auth=(username, password))
+        try:
+            driver.verify_connectivity()
+            with driver.session(database=database) as session:
+                # 1. Update the scalar properties (and confirm the task exists).
+                exists = session.run(
+                    """
+                    MATCH (t:Task {id: $task_id})
+                    SET t += $fields
+                    RETURN t.id AS id
+                    """,
+                    task_id=task_id,
+                    fields=fields,
+                ).single()
+                if exists is None:
+                    raise HTTPException(
+                        status_code=404, detail=f"Task '{task_id}' not found."
+                    )
+
+                # 2. On reassignment, re-point the ASSIGNED_TO edge: drop any old
+                #    Developer->Task edge and MERGE one to the new developer, so the
+                #    graph relationship matches the t.assigned_to property we set.
+                if "assigned_to" in fields:
+                    session.run(
+                        """
+                        MATCH (t:Task {id: $task_id})
+                        OPTIONAL MATCH (:Developer)-[r:ASSIGNED_TO]->(t)
+                        DELETE r
+                        WITH t
+                        MERGE (d:Developer {name: $assignee})
+                        MERGE (d)-[:ASSIGNED_TO]->(t)
+                        """,
+                        task_id=task_id,
+                        assignee=fields["assigned_to"],
+                    )
+
+                # 3. Read the task back in the standard shape to return it.
+                record = session.run(
+                    """
+                    MATCH (t:Task {id: $task_id})
+                    OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dep:Task)
+                    RETURN t.id AS id, t.title AS title, t.track AS track,
+                           t.description AS description, t.status AS status,
+                           t.assigned_to AS assigned_to,
+                           [d IN collect(dep.id) WHERE d IS NOT NULL] AS dependencies,
+                           t.created_at AS created_at, t.updated_at AS updated_at
+                    """,
+                    task_id=task_id,
+                ).single()
+        finally:
+            driver.close()
+
+        # Editing title/description changes what Clover + /search embed, so drop
+        # the ChromaDB cache to force a re-index on the next semantic query.
+        global _chroma_indexed
+        _chroma_indexed = False
+
+        # Best-effort mirror to the backend (excludes updated_at — the backend
+        # stamps its own). No-op until the backend adds a task field PATCH.
+        push_task_edit_to_backend(
+            task_id, {k: v for k, v in fields.items() if k != "updated_at"}
+        )
+
+        return {
+            "updated_fields": [k for k in fields if k != "updated_at"],
+            "task": dict(record),
+        }
     except HTTPException:
         raise
     except RuntimeError as exc:
