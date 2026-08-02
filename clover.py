@@ -3,8 +3,8 @@
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
-import chromadb
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -12,13 +12,14 @@ from google.genai import types
 from commit_intel import fetch_live_events
 from graph_query import build_reactflow_graph
 from query import get_all_tasks
-from search import (
-    COLLECTION_NAME,
-    get_embedding,
-    index_tasks,
-)
+from search import ensure_indexed, get_embedding
 
 MODEL_NAME = "gemini-2.5-flash-lite"
+
+# Sentinel so ask_clover can tell "caller pre-fetched this (possibly None)" apart
+# from "caller didn't pass it, fetch it yourself". fetch_graph()/fetch_live_events()
+# can both legitimately return None, so a plain None default wouldn't distinguish.
+_UNSET = object()
 
 SYSTEM_PROMPT = """You are Clover, an AI project assistant for a software development team. You have access to three sources of context:
 1. Task context — structured task data with IDs, titles, assignees, tracks, and statuses
@@ -37,24 +38,26 @@ Always be specific — mention actual names, task IDs, titles, and timestamps in
 
 # Finds the 3 tasks that best match the user's question using semantic search.
 def search_top_tasks(question: str, api_key: str, project_id: str | None = None) -> list[dict]:
-    """Find the 3 most relevant tasks using search.py helpers and ChromaDB."""
+    """Find the 3 most relevant tasks using the shared, cached ChromaDB index."""
     tasks = get_all_tasks()
-    if project_id:
-        tasks = [t for t in tasks if t.get("project_id") == project_id]
     if not tasks:
         return []
 
     embed_client = genai.Client(api_key=api_key)
-    chroma_client = chromadb.EphemeralClient()
-    collection = chroma_client.get_or_create_collection(name=COLLECTION_NAME)
-    index_tasks(collection, embed_client, tasks)
+    # Reuse the shared index (embeds every task once, cached across requests)
+    # rather than re-embedding on every call. Scope to the project at query time
+    # via a metadata filter instead of indexing a per-project subset.
+    collection = ensure_indexed(embed_client, tasks)
 
     query_embedding = get_embedding(embed_client, question)
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=3,
-        include=["metadatas", "distances"],
-    )
+    query_kwargs: dict = {
+        "query_embeddings": [query_embedding],
+        "n_results": 3,
+        "include": ["metadatas", "distances"],
+    }
+    if project_id:
+        query_kwargs["where"] = {"project_id": project_id}
+    results = collection.query(**query_kwargs)
 
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
@@ -180,9 +183,16 @@ def ask_clover(
     api_key: str,
     conversation_history: list[dict] = None,
     project_id: str | None = None,
+    graph=_UNSET,
+    live_events=_UNSET,
 ) -> str:
-    """Send retrieved tasks and graph context to Gemini and return an answer."""
-    full_graph = fetch_graph()
+    """Send retrieved tasks and graph context to Gemini and return an answer.
+
+    `graph` and `live_events` may be passed in pre-fetched (see answer_question,
+    which retrieves them in parallel with the semantic search). When left unset,
+    they're fetched here so the CLI / direct callers keep working unchanged.
+    """
+    full_graph = fetch_graph() if graph is _UNSET else graph
     if project_id and full_graph:
         project_task_ids = {t.get("id") for t in get_all_tasks() if t.get("project_id") == project_id}
         full_graph["nodes"] = [n for n in full_graph.get("nodes", []) if n.get("id") in project_task_ids or n.get("type") == "developer"]
@@ -204,14 +214,16 @@ def ask_clover(
         )
         prompt_parts.append(history_text)
 
-    # Try to add recent Discord and GitHub activity to the prompt.
-    try:
-        live_events = fetch_live_events()
-        if live_events:
-            commit_json = json.dumps(live_events, indent=2, ensure_ascii=False)
-            prompt_parts.append(f"Recent activity context:\n{commit_json}")
-    except Exception:
-        pass
+    # Add recent Discord and GitHub activity to the prompt. Fetch it here only if
+    # the caller didn't already (answer_question fetches it in parallel).
+    if live_events is _UNSET:
+        try:
+            live_events = fetch_live_events()
+        except Exception:
+            live_events = None
+    if live_events:
+        commit_json = json.dumps(live_events, indent=2, ensure_ascii=False)
+        prompt_parts.append(f"Recent activity context:\n{commit_json}")
 
     # Add matching graph nodes and edges if the graph API is available.
     graph_context = get_relevant_graph_context(question, full_graph)
@@ -245,6 +257,49 @@ def ask_clover(
     return (response.text or "").strip()
 
 
+# Fetches live events but never raises — matches how ask_clover treated failures.
+def _safe_fetch_live_events():
+    """fetch_live_events(), returning None instead of raising on any failure."""
+    try:
+        return fetch_live_events()
+    except Exception:
+        return None
+
+
+# Answers a question, running the three independent retrievals concurrently.
+def answer_question(
+    question: str,
+    api_key: str,
+    conversation_history: list[dict] = None,
+    project_id: str | None = None,
+) -> str:
+    """End-to-end Clover answer with the retrieval steps parallelised.
+
+    The semantic search, the graph build, and the live-events fetch don't depend
+    on each other — only the final Gemini synthesis needs all three. Running them
+    in a thread pool (they're all I/O-bound) collapses their latency to the slowest
+    single step instead of their sum, then ask_clover does the one LLM call.
+    """
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        tasks_future = pool.submit(search_top_tasks, question, api_key, project_id)
+        graph_future = pool.submit(fetch_graph)
+        events_future = pool.submit(_safe_fetch_live_events)
+
+        relevant_tasks = tasks_future.result()
+        graph = graph_future.result()
+        live_events = events_future.result()
+
+    return ask_clover(
+        question,
+        relevant_tasks,
+        api_key,
+        conversation_history,
+        project_id=project_id,
+        graph=graph,
+        live_events=live_events,
+    )
+
+
 # Runs Clover from the command line: asks a question and prints the answer.
 def main() -> None:
     load_dotenv()
@@ -263,8 +318,7 @@ def main() -> None:
         raise RuntimeError("Question cannot be empty.")
 
     conversation_history: list[dict] = []
-    relevant_tasks = search_top_tasks(question, api_key)
-    answer = ask_clover(question, relevant_tasks, api_key, conversation_history)
+    answer = answer_question(question, api_key, conversation_history)
 
     print(f"\nQuestion: {question}\n")
     print("Clover:")

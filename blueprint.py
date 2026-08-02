@@ -91,6 +91,7 @@ def generate_blueprint(
     name: str,
     description: str,
     tech_stack: list[str] | None = None,
+    project_id: str | None = None,
 ) -> dict:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     if not GEMINI_API_KEY:
@@ -98,7 +99,11 @@ def generate_blueprint(
             "GEMINI_API_KEY is not set. Add it to a .env file in the project root."
         )
 
-    project_id = _new_project_id()
+    # Reuse the caller's project_id when regenerating an existing project (the
+    # frontend's "modify" flow), so the same project is overwritten in place
+    # instead of a brand-new one being minted every time — which is what caused
+    # duplicate projects. Only mint a fresh id when none is supplied (new project).
+    project_id = project_id.strip() if project_id and project_id.strip() else _new_project_id()
     stack = tech_stack or []
     tech_stack_text = ", ".join(stack) if stack else "(not specified)"
 
