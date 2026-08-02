@@ -13,7 +13,7 @@ import sys
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
-DEFAULT_STATUS = "todo"
+DEFAULT_STATUS = "upcoming"
 
 
 def create_constraints(session) -> None:

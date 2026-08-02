@@ -47,7 +47,7 @@ def group_tasks_by_person(tasks: list[dict]) -> dict[str, dict[str, list[dict]]]
             grouped[person] = {
                 "completed": [],
                 "in_progress": [],
-                "blocked": [],
+                "stopped": [],
             }
 
         summary = {
@@ -60,8 +60,8 @@ def group_tasks_by_person(tasks: list[dict]) -> dict[str, dict[str, list[dict]]]
             grouped[person]["completed"].append(summary)
         elif status == "in_progress":
             grouped[person]["in_progress"].append(summary)
-        elif status == "blocked":
-            grouped[person]["blocked"].append(summary)
+        elif status == "stopped":
+            grouped[person]["stopped"].append(summary)
 
     return grouped
 

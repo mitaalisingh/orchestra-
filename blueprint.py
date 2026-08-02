@@ -41,7 +41,7 @@ comments, or any text outside the JSON. The JSON must match this exact schema:
       "track": "string",
       "description": "string",
       "dependencies": ["{project_id}-T0", "..."],
-      "status": "todo",
+      "status": "upcoming",
       "priority": "high" | "medium" | "low",
       "deadline": "2026-06-15T00:00:00+00:00",
       "project_id": "{project_id}",
@@ -58,7 +58,7 @@ Rules:
 - Use concise, descriptive track names such as "frontend", "backend", "AI", "mobile", "devops", "database", "design", "qa", "security", etc.
 - Keep track naming consistent across tasks.
 - "dependencies" is an array of task ids this task depends on (use [] if none).
-- "status" must always be "todo".
+- "status" must always be "upcoming".
 - "priority" must be exactly one of: "high", "medium", "low", based on task importance.
 - "deadline" must be an ISO 8601 datetime string. Estimate a realistic deadline for each task starting from today, taking into account task complexity, priority, and dependencies — higher priority and tasks with no dependencies should have earlier deadlines. Spread deadlines across the project timeline so the full project completes within a reasonable timeframe.
 - "project_id" must always be "{project_id}".

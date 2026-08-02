@@ -602,7 +602,7 @@ def get_tasks() -> list[dict[str, Any]]:
 @app.patch("/tasks/{task_id}/status", dependencies=[Depends(verify_api_key)])
 def update_task_status(task_id: str, body: TaskStatusRequest) -> dict[str, Any]:
     """Update a task's status in the Neo4j graph."""
-    allowed_statuses = {"completed", "in_progress", "blocked"}
+    allowed_statuses = {"upcoming", "in_progress", "completed", "stopped"}
     if body.status not in allowed_statuses:
         raise HTTPException(
             status_code=400,
