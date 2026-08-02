@@ -52,7 +52,7 @@ Rules:
 
 def find_blocked_tasks(tasks: list[dict]) -> list[dict]:
     """Return tasks currently marked as blocked."""
-    return [task for task in tasks if task.get("status") == "stopped"]
+    return [task for task in tasks if task.get("status") == "blocked"]
 
 
 def find_dependents(blocked_task_id: str, tasks: list[dict]) -> list[dict]:

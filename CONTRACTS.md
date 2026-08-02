@@ -15,7 +15,7 @@ Each task in the AI-generated roadmap follows this structure:
   "title": "string",
   "track": "string",
   "description": "string",
-  "status": "upcoming | in_progress | completed | stopped",
+  "status": "upcoming | in_progress | completed | blocked",
   "assigned_to": "string",
   "dependencies": [],
   "priority": "high | medium | low",
@@ -33,7 +33,7 @@ Each task in the AI-generated roadmap follows this structure:
 | `id` | string | Unique task identifier (e.g. `T1`, `T2`) |
 | `title` | string | Short, human-readable task name |
 | `description` | string | Detailed explanation of what the task involves |
-| `status` | string | Current task status. One of: `upcoming`, `in_progress`, `completed`, `stopped` |
+| `status` | string | Current task status. One of: `upcoming`, `in_progress`, `completed`, `blocked` |
 | `assigned_to` | string | Name of the team member assigned to this task (added by `assign.py`) |
 | `platform` | string | Target platform or surface area for the task (e.g. `web`, `mobile`, `backend`) |
 | `priority` | string | Task priority level (e.g. `low`, `medium`, `high`) |
@@ -115,7 +115,7 @@ Tasks stored in the Neo4j knowledge graph use this node structure:
 | `title` | string | Task title — must match the AI Output Format `title` |
 | `track` | string | Work category — must match the AI Output Format `track` |
 | `assigned_to` | string | Assigned team member — must match the AI Output Format `assigned_to` |
-| `status` | string | Current task status. One of: `upcoming`, `in_progress`, `completed`, `stopped` |
+| `status` | string | Current task status. One of: `upcoming`, `in_progress`, `completed`, `blocked` |
 
 ### Relationship Types
 
