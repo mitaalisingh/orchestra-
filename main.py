@@ -468,6 +468,8 @@ def clover(body: CloverRequest) -> dict[str, Any]:
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except HTTPException:
+        raise
     except Exception as exc:
         err = str(exc).lower()
         if "quota" in err or "429" in err or "resource exhausted" in err:
@@ -486,7 +488,7 @@ def clover(body: CloverRequest) -> dict[str, Any]:
                 detail="Clover took too long to respond. Try again.",
             ) from exc
         raise HTTPException(
-            status_code=500, detail=f"AI service error: {exc}"
+            status_code=500, detail=f"Clover failed: {type(exc).__name__}: {exc}"
         ) from exc
 
     updated_history = body.conversation_history + [
