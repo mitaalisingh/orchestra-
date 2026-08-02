@@ -181,31 +181,22 @@ def enrich_with_graph(task_ids: list[str], graph: dict) -> list[dict]:
     return enriched
 
 
-# Sends all context to Gemini and returns Clover's answer as text.
-def ask_clover(
+# Builds the ordered prompt sections from all pre-fetched context sources.
+def _build_prompt_parts(
     question: str,
     task_context: list[dict],
-    api_key: str,
-    conversation_history: list[dict] = None,
+    conversation_history: list[dict] | None,
+    live_events,
+    full_graph,
     project_id: str | None = None,
-    graph=_UNSET,
-    live_events=_UNSET,
-) -> str:
-    """Send retrieved tasks and graph context to Gemini and return an answer.
-
-    `graph` and `live_events` may be passed in pre-fetched (see answer_question,
-    which retrieves them in parallel with the semantic search). When left unset,
-    they're fetched here so the CLI / direct callers keep working unchanged.
-    """
-    full_graph = fetch_graph() if graph is _UNSET else graph
+) -> list[str]:
+    """Shared prompt builder used by both ask_clover and stream_answer."""
     if project_id and full_graph:
         project_task_ids = {t.get("id") for t in get_all_tasks() if t.get("project_id") == project_id}
         full_graph["nodes"] = [n for n in full_graph.get("nodes", []) if n.get("id") in project_task_ids or n.get("type") == "developer"]
         full_graph["edges"] = [e for e in full_graph.get("edges", []) if e.get("source") in project_task_ids or e.get("target") in project_task_ids]
-    # Set up the Gemini client and start building the prompt with task data.
-    client = genai.Client(api_key=api_key)
-    context_json = json.dumps(task_context, indent=2, ensure_ascii=False)
 
+    context_json = json.dumps(task_context, indent=2, ensure_ascii=False)
     prompt_parts = [f"Task context:\n{context_json}"]
 
     if conversation_history:
@@ -237,18 +228,10 @@ def ask_clover(
         )
         prompt_parts.append(history_text)
 
-    # Add recent Discord and GitHub activity to the prompt. Fetch it here only if
-    # the caller didn't already (answer_question fetches it in parallel).
-    if live_events is _UNSET:
-        try:
-            live_events = fetch_live_events()
-        except Exception:
-            live_events = None
     if live_events:
         commit_json = json.dumps(live_events, indent=2, ensure_ascii=False)
         prompt_parts.append(f"Recent activity context:\n{commit_json}")
 
-    # Add matching graph nodes and edges if the graph API is available.
     graph_context = get_relevant_graph_context(question, full_graph)
     if graph_context is not None:
         graph_json = json.dumps(graph_context, indent=2, ensure_ascii=False)
@@ -264,10 +247,38 @@ def ask_clover(
                 f"{enriched_json}"
             )
 
-    # Add the user's question as the final part of the prompt.
     prompt_parts.append(f"User question: {question}")
+    return prompt_parts
 
-    # Send the full prompt to Gemini and get back an answer.
+
+# Sends all context to Gemini and returns Clover's answer as text.
+def ask_clover(
+    question: str,
+    task_context: list[dict],
+    api_key: str,
+    conversation_history: list[dict] = None,
+    project_id: str | None = None,
+    graph=_UNSET,
+    live_events=_UNSET,
+) -> str:
+    """Send retrieved tasks and graph context to Gemini and return an answer.
+
+    `graph` and `live_events` may be passed in pre-fetched (see answer_question,
+    which retrieves them in parallel with the semantic search). When left unset,
+    they're fetched here so the CLI / direct callers keep working unchanged.
+    """
+    full_graph = fetch_graph() if graph is _UNSET else graph
+    if live_events is _UNSET:
+        try:
+            live_events = fetch_live_events()
+        except Exception:
+            live_events = None
+
+    client = genai.Client(api_key=api_key)
+    prompt_parts = _build_prompt_parts(
+        question, task_context, conversation_history, live_events, full_graph, project_id
+    )
+
     response = client.models.generate_content(
         model=MODEL_NAME,
         contents="\n\n".join(prompt_parts),
@@ -278,6 +289,61 @@ def ask_clover(
     )
 
     return (response.text or "").strip()
+
+
+# Yields Gemini response chunks as they're generated, then a final history event.
+def stream_answer(
+    question: str,
+    api_key: str,
+    conversation_history: list[dict] = None,
+    project_id: str | None = None,
+):
+    """Retrieve context in parallel, then stream Gemini's answer chunk by chunk.
+
+    Each yielded value is a JSON string in one of two shapes:
+      {"chunk": "text"}              — a piece of the answer as Gemini generates it
+      {"done": true, "conversation_history": [...]}  — sent once at the end
+
+    The caller wraps each in "data: ...\\n\\n" for SSE. Errors are yielded as
+    {"error": "message", "status": <code>} so the frontend can display them
+    even though HTTP headers are already sent by the time we fail.
+    """
+    want_graph = _needs_graph(question)
+    want_events = _needs_events(question)
+    if not want_graph and not want_events:
+        want_graph = want_events = True
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        tasks_future = pool.submit(search_top_tasks, question, api_key, project_id)
+        graph_future = pool.submit(fetch_graph) if want_graph else None
+        events_future = pool.submit(_safe_fetch_live_events) if want_events else None
+
+        relevant_tasks = tasks_future.result()
+        graph = graph_future.result() if graph_future else None
+        live_events = events_future.result() if events_future else None
+
+    client = genai.Client(api_key=api_key)
+    prompt_parts = _build_prompt_parts(
+        question, relevant_tasks, conversation_history, live_events, graph, project_id
+    )
+
+    full_answer = ""
+    for chunk in client.models.generate_content_stream(
+        model=MODEL_NAME,
+        contents="\n\n".join(prompt_parts),
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            temperature=0.3,
+        ),
+    ):
+        if chunk.text:
+            full_answer += chunk.text
+            yield json.dumps({"chunk": chunk.text})
+
+    updated_history = (conversation_history or []) + [
+        {"question": question, "answer": full_answer}
+    ]
+    yield json.dumps({"done": True, "conversation_history": updated_history[-5:]})
 
 
 # Fetches live events but never raises — matches how ask_clover treated failures.

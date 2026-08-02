@@ -9,6 +9,7 @@ from typing import Any
 import requests
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from neo4j import GraphDatabase
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
@@ -18,7 +19,7 @@ from pydantic import BaseModel
 from assign import assign_tasks, fetch_skills_from_neo4j
 from blueprint import extract_json, generate_blueprint
 from ingest import ingest_all
-from clover import answer_question
+from clover import answer_question, stream_answer
 from commit_intel import fetch_live_events, main as run_commit_intel
 from graph_query import build_reactflow_graph, merge_developer_skills
 from onboarding import build_profile
@@ -452,49 +453,48 @@ def search(
 
 
 @app.post("/clover", dependencies=[Depends(verify_api_key)])
-def clover(body: CloverRequest) -> dict[str, Any]:
-    """Answer a project question using RAG task context and Clover."""
+def clover(body: CloverRequest) -> StreamingResponse:
+    """Stream a Clover answer chunk by chunk as Gemini generates it.
+
+    Response is text/event-stream (SSE). Each event is a JSON line:
+      data: {"chunk": "text"}                                     — answer fragment
+      data: {"done": true, "conversation_history": [...]}         — final event
+      data: {"error": "message", "status": 429}                   — on failure
+
+    Arnav's proxy must forward chunks as they arrive (no buffering).
+    Prince reads with response.body.getReader() and appends each chunk to the UI.
+    """
     if not body.question.strip():
         raise HTTPException(status_code=400, detail="question cannot be empty.")
 
     api_key = get_api_key()
 
-    try:
-        answer = answer_question(
-            body.question.strip(),
-            api_key,
-            body.conversation_history,
-            project_id=body.project_id,
-        )
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
-    except HTTPException:
-        raise
-    except Exception as exc:
-        err = str(exc).lower()
-        if "quota" in err or "429" in err or "resource exhausted" in err:
-            raise HTTPException(
-                status_code=429,
-                detail="Gemini API quota exceeded. Try again in a few minutes.",
-            ) from exc
-        if "api key" in err or "401" in err or "403" in err or "invalid" in err:
-            raise HTTPException(
-                status_code=503,
-                detail="Gemini API key is invalid or expired. Contact the project admin.",
-            ) from exc
-        if "timeout" in err or "deadline" in err or "504" in err:
-            raise HTTPException(
-                status_code=504,
-                detail="Clover took too long to respond. Try again.",
-            ) from exc
-        raise HTTPException(
-            status_code=500, detail=f"Clover failed: {type(exc).__name__}: {exc}"
-        ) from exc
+    def generate():
+        try:
+            for chunk_json in stream_answer(
+                body.question.strip(),
+                api_key,
+                body.conversation_history,
+                project_id=body.project_id,
+            ):
+                yield f"data: {chunk_json}\n\n"
+        except Exception as exc:
+            err = str(exc).lower()
+            if "quota" in err or "429" in err or "resource exhausted" in err:
+                msg = "Gemini API quota exceeded. Try again in a few minutes."
+                code = 429
+            elif "api key" in err or "401" in err or "403" in err or "invalid" in err:
+                msg = "Gemini API key is invalid or expired. Contact the project admin."
+                code = 503
+            elif "timeout" in err or "deadline" in err or "504" in err:
+                msg = "Clover took too long to respond. Try again."
+                code = 504
+            else:
+                msg = f"Clover failed: {type(exc).__name__}: {exc}"
+                code = 500
+            yield f"data: {json.dumps({'error': msg, 'status': code})}\n\n"
 
-    updated_history = body.conversation_history + [
-        {"question": body.question.strip(), "answer": answer}
-    ]
-    return {"answer": answer, "conversation_history": updated_history[-5:]}
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 @app.get("/standup")
