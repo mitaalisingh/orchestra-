@@ -206,7 +206,25 @@ def ask_clover(
     if conversation_history:
         history_text = "Conversation history (most recent last):\n"
         for item in conversation_history[-5:]:
-            history_text += f"User: {item['question']}\nClover: {item['answer']}\n"
+            if not isinstance(item, dict):
+                continue
+            # Be tolerant of the client's history shape. Our own is
+            # {question, answer}, but chat UIs often send {role, content} or
+            # {sender, text} bubbles (incl. an opening greeting with no
+            # question). Never index a key directly — a missing key used to
+            # raise KeyError and turn the whole request into a 500.
+            q = str(item.get("question") or "")
+            a = str(item.get("answer") or "")
+            if not q and not a:
+                content = str(item.get("content") or item.get("text") or item.get("message") or "")
+                if not content:
+                    continue
+                role = str(item.get("role") or item.get("sender") or "").lower()
+                if role in ("user", "human"):
+                    q = content
+                else:
+                    a = content
+            history_text += f"User: {q}\nClover: {a}\n"
         history_text += (
             "\nIf the current question refers back to this conversation "
             '(e.g. "those changes", "that task", "they"), resolve the reference '
