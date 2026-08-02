@@ -33,13 +33,20 @@ Return ONLY a single valid JSON object with this exact shape:
       "track": "string",
       "description": "string",
       "dependencies": ["T0"],
+      "status": "upcoming",
+      "priority": "high",
+      "deadline": "2026-08-15T00:00:00+00:00",
+      "project_id": "string",
+      "platform": "github",
+      "created_at": "string",
+      "updated_at": "string",
       "assigned_to": "member_name"
     }}
   ]
 }}
 
 Rules:
-- Keep all original tasks and task fields from the input blueprint.
+- Keep ALL original task fields from the input blueprint exactly as they are — do not drop or rename any field.
 - Add exactly one "assigned_to" for every task.
 - "assigned_to" must be one of the member names from the team skills JSON.
 - Choose the best fit based on relevant skills and task type.
