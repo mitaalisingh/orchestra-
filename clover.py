@@ -33,7 +33,12 @@ Use these rules to answer questions:
 - "What skills does X have?" or "Who can do X?" → prioritise graph context and task context
 - For all other questions → use whichever context is most relevant
 
-Always be specific — mention actual names, task IDs, titles, and timestamps in your answers. If the context does not contain enough information to answer, say so clearly."""
+Always be specific — mention actual names, task IDs, titles, and timestamps in your answers. If the context does not contain enough information to answer, say so clearly.
+
+Formatting rules — strictly follow these:
+- Write in plain conversational text only. No markdown, no asterisks, no bold, no bullet symbols, no headers.
+- Use plain dashes (-) for lists if needed, nothing else.
+- Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail."""
 
 
 # Finds the 3 tasks that best match the user's question using semantic search.
