@@ -266,7 +266,7 @@ def _safe_fetch_live_events():
         return None
 
 
-_GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on"}
+_GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on", "work on", "assigned to", "responsible"}
 _EVENT_KEYWORDS = {"recent", "today", "yesterday", "commit", "push", "discord", "did", "doing", "worked", "activity", "update", "lately", "last week", "this week"}
 
 
