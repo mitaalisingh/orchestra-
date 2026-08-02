@@ -266,6 +266,20 @@ def _safe_fetch_live_events():
         return None
 
 
+_GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on"}
+_EVENT_KEYWORDS = {"recent", "today", "yesterday", "commit", "push", "discord", "did", "doing", "worked", "activity", "update", "lately", "last week", "this week"}
+
+
+def _needs_graph(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _GRAPH_KEYWORDS)
+
+
+def _needs_events(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _EVENT_KEYWORDS)
+
+
 # Answers a question, running the three independent retrievals concurrently.
 def answer_question(
     question: str,
@@ -279,15 +293,25 @@ def answer_question(
     on each other — only the final Gemini synthesis needs all three. Running them
     in a thread pool (they're all I/O-bound) collapses their latency to the slowest
     single step instead of their sum, then ask_clover does the one LLM call.
+
+    Graph and events are only fetched when the question actually needs them —
+    skipping an unnecessary HTTP call or Neo4j query saves real time.
     """
+    want_graph = _needs_graph(question)
+    want_events = _needs_events(question)
+    # If neither keyword set matched, fetch both — better to have too much context
+    # than too little for an ambiguous question.
+    if not want_graph and not want_events:
+        want_graph = want_events = True
+
     with ThreadPoolExecutor(max_workers=3) as pool:
         tasks_future = pool.submit(search_top_tasks, question, api_key, project_id)
-        graph_future = pool.submit(fetch_graph)
-        events_future = pool.submit(_safe_fetch_live_events)
+        graph_future = pool.submit(fetch_graph) if want_graph else None
+        events_future = pool.submit(_safe_fetch_live_events) if want_events else None
 
         relevant_tasks = tasks_future.result()
-        graph = graph_future.result()
-        live_events = events_future.result()
+        graph = graph_future.result() if graph_future else None
+        live_events = events_future.result() if events_future else None
 
     return ask_clover(
         question,
