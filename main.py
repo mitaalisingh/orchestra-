@@ -838,6 +838,54 @@ def graph(
         ) from exc
 
 
+@app.delete("/projects/{project_id}", dependencies=[Depends(verify_api_key)])
+def delete_project(project_id: str) -> dict[str, Any]:
+    """Delete all Neo4j tasks (and their relationships) for a given project.
+
+    Called by the backend after it deletes the project row from Postgres, so
+    the graph doesn't accumulate orphaned tasks from deleted projects.
+    """
+    try:
+        uri = os.getenv("NEO4J_URI")
+        username = os.getenv("NEO4J_USERNAME")
+        password = os.getenv("NEO4J_PASSWORD")
+        database = os.getenv("NEO4J_DATABASE") or None
+
+        if not all([uri, username, password]):
+            raise RuntimeError(
+                "NEO4J_URI, NEO4J_USERNAME and NEO4J_PASSWORD must be set."
+            )
+
+        driver = GraphDatabase.driver(uri, auth=(username, password))
+        try:
+            driver.verify_connectivity()
+            with driver.session(database=database) as session:
+                result = session.run(
+                    """
+                    MATCH (t:Task {project_id: $project_id})
+                    DETACH DELETE t
+                    RETURN count(t) AS deleted_count
+                    """,
+                    project_id=project_id,
+                )
+                record = result.single()
+                deleted_count = record["deleted_count"] if record else 0
+        finally:
+            driver.close()
+
+        global _chroma_indexed
+        _chroma_indexed = False
+
+        return {"project_id": project_id, "deleted_tasks": deleted_count}
+
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503, detail=f"Graph database error: {exc}"
+        ) from exc
+
+
 if __name__ == "__main__":
     import uvicorn
 
