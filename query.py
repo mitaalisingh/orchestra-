@@ -185,6 +185,40 @@ def patch_task_status(task_id: str, new_status: str) -> dict | None:
         driver.close()
 
 
+def patch_task_status(task_id: str, new_status: str) -> dict | None:
+    """Update a single task's status in Neo4j. Returns the updated task or None."""
+    from datetime import datetime, timezone
+
+    load_dotenv()
+    uri = os.getenv("NEO4J_URI")
+    username = os.getenv("NEO4J_USERNAME")
+    password = os.getenv("NEO4J_PASSWORD")
+    database = os.getenv("NEO4J_DATABASE") or None
+
+    if not all([uri, username, password]):
+        return None
+
+    driver = GraphDatabase.driver(uri, auth=(username, password))
+    try:
+        driver.verify_connectivity()
+        with driver.session(database=database) as session:
+            record = session.run(
+                """
+                MATCH (t:Task {id: $task_id})
+                SET t.status = $status, t.updated_at = $updated_at
+                RETURN t.id AS id, t.title AS title, t.status AS status
+                """,
+                task_id=task_id,
+                status=new_status,
+                updated_at=datetime.now(timezone.utc).isoformat(),
+            ).single()
+            return dict(record) if record else None
+    except Exception:
+        return None
+    finally:
+        driver.close()
+
+
 def get_all_tasks() -> list[dict]:
     """Return every task as a clean JSON-serialisable record.
 
