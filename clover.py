@@ -13,7 +13,7 @@ from google.genai import types
 
 from commit_intel import fetch_live_events, link_event_to_task
 from graph_query import build_reactflow_graph
-from query import get_all_tasks, patch_task_status, patch_task_status
+from query import get_all_tasks, patch_task_status
 from search import ensure_indexed, get_embedding
 
 MODEL_NAME = "gemini-2.5-flash"
@@ -425,12 +425,24 @@ def stream_answer(
         except Exception:
             pass
 
+    suggested_tasks = [
+        {"id": t.get("id"), "title": t.get("title"), "project_id": t.get("project_id")}
+        for t in relevant_tasks
+        if t.get("id") and t.get("title")
+    ]
+
+    nav_action = _detect_navigation(question, project_id, project_names)
+
     updated_history = (conversation_history or []) + [
         {"question": question, "answer": full_answer}
     ]
     done_payload: dict = {"done": True, "conversation_history": updated_history[-5:]}
     if task_updates:
         done_payload["task_updates"] = task_updates
+    if suggested_tasks:
+        done_payload["suggested_tasks"] = suggested_tasks
+    if nav_action:
+        done_payload["action"] = nav_action
     yield json.dumps(done_payload)
 
 
@@ -549,6 +561,44 @@ def update_tasks_from_github(
             continue
 
     return updates
+
+
+_NAV_KEYWORDS = {"take me to", "open the", "open ", "go to", "show me the", "navigate to"}
+_DEST_MAP = {
+    "kanban": "kanban",
+    "board": "kanban",
+    "workflow": "workflow",
+    "graph": "graph",
+    "flow": "workflow",
+}
+
+
+def _detect_navigation(
+    question: str,
+    project_id: str | None,
+    project_names: dict[str, str],
+) -> dict | None:
+    """Return an action dict if the question is a navigation request, else None."""
+    q = question.lower()
+    if not any(kw in q for kw in _NAV_KEYWORDS):
+        return None
+
+    destination = None
+    for keyword, dest in _DEST_MAP.items():
+        if keyword in q:
+            destination = dest
+            break
+    if not destination:
+        return None
+
+    # Fuzzy-match project name from question, fall back to current project_id
+    target_project_id = project_id
+    for pid, pname in project_names.items():
+        if pname and pname.lower() in q:
+            target_project_id = pid
+            break
+
+    return {"type": "navigate", "destination": destination, "project_id": target_project_id}
 
 
 _GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on", "work on", "assigned to", "responsible"}
