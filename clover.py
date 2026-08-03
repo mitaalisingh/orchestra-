@@ -16,7 +16,7 @@ from graph_query import build_reactflow_graph
 from query import get_all_tasks, patch_task_status, patch_task_status
 from search import ensure_indexed, get_embedding
 
-MODEL_NAME = "gemini-2.5-flash-lite"
+MODEL_NAME = "gemini-2.5-flash"
 
 # Sentinel so ask_clover can tell "caller pre-fetched this (possibly None)" apart
 # from "caller didn't pass it, fetch it yourself". fetch_graph()/fetch_live_events()
