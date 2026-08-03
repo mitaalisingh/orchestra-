@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
@@ -11,7 +12,7 @@ from google.genai import types
 
 from commit_intel import fetch_live_events
 from graph_query import build_reactflow_graph
-from query import get_all_tasks
+from query import get_all_tasks, patch_task_status
 from search import ensure_indexed, get_embedding
 
 MODEL_NAME = "gemini-2.5-flash-lite"
@@ -308,6 +309,19 @@ def stream_answer(
     {"error": "message", "status": <code>} so the frontend can display them
     even though HTTP headers are already sent by the time we fail.
     """
+    # Check for task status update intent before hitting Gemini
+    task_update = None
+    action = _detect_task_action(question)
+    if action:
+        task_id, new_status = action
+        result = patch_task_status(task_id, new_status)
+        task_update = {
+            "task_id": task_id,
+            "new_status": new_status,
+            "title": result.get("title") if result else None,
+            "success": result is not None,
+        }
+
     want_graph = _needs_graph(question)
     want_events = _needs_events(question)
     if not want_graph and not want_events:
@@ -327,6 +341,22 @@ def stream_answer(
         question, relevant_tasks, conversation_history, live_events, graph, project_id
     )
 
+    if task_update:
+        if task_update["success"]:
+            prompt_parts.insert(
+                0,
+                f"System action: Task {task_update['task_id']} "
+                f"(\"{task_update['title']}\") has been updated to "
+                f"\"{task_update['new_status']}\". "
+                "Confirm this to the user naturally in one sentence.",
+            )
+        else:
+            prompt_parts.insert(
+                0,
+                f"System action failed: Could not find or update task "
+                f"{task_update['task_id']}. Let the user know naturally.",
+            )
+
     full_answer = ""
     for chunk in client.models.generate_content_stream(
         model=MODEL_NAME,
@@ -343,7 +373,10 @@ def stream_answer(
     updated_history = (conversation_history or []) + [
         {"question": question, "answer": full_answer}
     ]
-    yield json.dumps({"done": True, "conversation_history": updated_history[-5:]})
+    done_payload: dict = {"done": True, "conversation_history": updated_history[-5:]}
+    if task_update:
+        done_payload["task_update"] = task_update
+    yield json.dumps(done_payload)
 
 
 # Fetches live events but never raises — matches how ask_clover treated failures.
@@ -353,6 +386,41 @@ def _safe_fetch_live_events():
         return fetch_live_events()
     except Exception:
         return None
+
+
+_TASK_ID_RE = re.compile(r'\bT\d+\b', re.IGNORECASE)
+_COMPLETED_RE = re.compile(r'\b(?:done|finish(?:ed)?|complet(?:ed)?|wrap(?:ped)?\s*up)\b', re.IGNORECASE)
+_IN_PROGRESS_RE = re.compile(r'\b(?:start(?:ing|ed)?|working\s+on|began|beginning|picking\s+up)\b', re.IGNORECASE)
+_BLOCKED_RE = re.compile(r'\b(?:block(?:ed)?|stuck|can\'t\s+(?:start|do|work))\b', re.IGNORECASE)
+
+
+def _detect_task_action(question: str) -> tuple[str, str] | None:
+    """Return (task_id, new_status) if the question is a status update, else None."""
+    task_ids = _TASK_ID_RE.findall(question)
+    if not task_ids:
+        return None
+    task_id = task_ids[0].upper()
+
+    # Explicit "mark T4 as X" takes priority
+    mark_match = re.search(r'\bmark\s+T\d+\s+as\s+([\w\s]+)', question, re.IGNORECASE)
+    if mark_match:
+        label = mark_match.group(1).strip().lower()
+        if any(w in label for w in ("complet", "done", "finish")):
+            return task_id, "completed"
+        if any(w in label for w in ("progress", "start", "active")):
+            return task_id, "in_progress"
+        if any(w in label for w in ("block", "stuck")):
+            return task_id, "blocked"
+        if any(w in label for w in ("upcoming", "todo")):
+            return task_id, "upcoming"
+
+    if _COMPLETED_RE.search(question):
+        return task_id, "completed"
+    if _IN_PROGRESS_RE.search(question):
+        return task_id, "in_progress"
+    if _BLOCKED_RE.search(question):
+        return task_id, "blocked"
+    return None
 
 
 _GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on", "work on", "assigned to", "responsible"}
