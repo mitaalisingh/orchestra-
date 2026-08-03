@@ -11,9 +11,9 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-from commit_intel import fetch_live_events
+from commit_intel import fetch_live_events, link_event_to_task
 from graph_query import build_reactflow_graph
-from query import get_all_tasks, patch_task_status
+from query import get_all_tasks, patch_task_status, patch_task_status
 from search import ensure_indexed, get_embedding
 
 MODEL_NAME = "gemini-2.5-flash-lite"
@@ -342,6 +342,7 @@ def stream_answer(
     api_key: str,
     conversation_history: list[dict] = None,
     project_id: str | None = None,
+    github_username: str | None = None,
 ):
     """Retrieve context in parallel, then stream Gemini's answer chunk by chunk.
 
@@ -417,12 +418,19 @@ def stream_answer(
             full_answer += chunk.text
             yield json.dumps({"chunk": chunk.text})
 
+    task_updates: list[dict] = []
+    if github_username and _needs_github_update(question):
+        try:
+            task_updates = update_tasks_from_github(github_username, api_key, project_id)
+        except Exception:
+            pass
+
     updated_history = (conversation_history or []) + [
         {"question": question, "answer": full_answer}
     ]
     done_payload: dict = {"done": True, "conversation_history": updated_history[-5:]}
-    if task_update:
-        done_payload["task_update"] = task_update
+    if task_updates:
+        done_payload["task_updates"] = task_updates
     yield json.dumps(done_payload)
 
 
@@ -468,6 +476,79 @@ def _detect_task_action(question: str) -> tuple[str, str] | None:
     if _BLOCKED_RE.search(question):
         return task_id, "blocked"
     return None
+
+
+_GITHUB_UPDATE_KEYWORDS = {
+    "update kanban", "update my kanban", "check my github", "check github",
+    "update from github", "sync github", "github update", "sync my kanban",
+    "update tasks from github", "check my commits",
+}
+
+
+def _needs_github_update(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _GITHUB_UPDATE_KEYWORDS)
+
+
+def _infer_status_from_event(event_type: str) -> str | None:
+    """Map a normalized event type to a task status, or None if not actionable."""
+    et = event_type.lower()
+    if "merge" in et:
+        return "completed"
+    if "push" in et or "pull" in et or "pr" in et:
+        return "in_progress"
+    return None
+
+
+def update_tasks_from_github(
+    github_username: str,
+    api_key: str,
+    project_id: str | None = None,
+) -> list[dict]:
+    """Fetch recent GitHub events for a user, map to tasks, and update Neo4j.
+
+    Returns a list of {task_id, title, new_status, event_summary, success} dicts
+    for every task that was updated, so the done event can report what changed.
+    Capped at 5 events to keep Gemini calls bounded.
+    """
+    events = _safe_fetch_live_events() or []
+    user_events = [
+        e for e in events
+        if e.get("platform") == "github"
+        and str(e.get("actor", "")).lower() == github_username.lower()
+    ]
+    if not user_events:
+        return []
+
+    all_tasks = get_all_tasks()
+    tasks = [t for t in all_tasks if not project_id or t.get("project_id") == project_id]
+    if not tasks:
+        return []
+
+    client = genai.Client(api_key=api_key)
+    updates: list[dict] = []
+
+    for event in user_events[:5]:
+        try:
+            link = link_event_to_task(event, tasks, client)
+            task_id = link.get("linked_task_id")
+            if not task_id:
+                continue
+            new_status = _infer_status_from_event(event.get("event_type", ""))
+            if not new_status:
+                continue
+            result = patch_task_status(task_id, new_status)
+            updates.append({
+                "task_id": task_id,
+                "title": link.get("linked_task_title"),
+                "new_status": new_status,
+                "event_summary": event.get("action_summary", ""),
+                "success": result is not None,
+            })
+        except Exception:
+            continue
+
+    return updates
 
 
 _GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on", "work on", "assigned to", "responsible"}
