@@ -6,6 +6,7 @@ import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 
+import requests
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -34,12 +35,41 @@ Use these rules to answer questions:
 - "What skills does X have?" or "Who can do X?" → prioritise graph context and task context
 - For all other questions → use whichever context is most relevant
 
-Always be specific — mention actual names, task IDs, titles, and timestamps in your answers. If the context does not contain enough information to answer, say so clearly.
+Always be specific — mention actual names, task IDs, titles, and timestamps in your answers. When a task has a "project" field, cite the project name alongside the task id, e.g. "Implement 'How to Use' UI (calculator app - Pb251a963-T14)". If the context does not contain enough information to answer, say so clearly.
 
 Formatting rules — strictly follow these:
 - Write in plain conversational text only. No markdown, no asterisks, no bold, no bullet symbols, no headers.
 - Use plain dashes (-) for lists if needed, nothing else.
 - Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail."""
+
+
+# Fetches a {project_id: project_name} map from the backend (best-effort).
+def fetch_project_names() -> dict[str, str]:
+    """Return {project_id: name} from the backend, or {} on any failure.
+
+    The graph only stores the project id (embedded in each task id, e.g.
+    "P4a584a19-T3"); the human-readable name lives in the backend's projects
+    table. We pull it so Clover can cite "PantryPal" instead of a bare id.
+    """
+    backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
+    try:
+        resp = requests.get(f"{backend_url}/projects", timeout=30)
+        resp.raise_for_status()
+        projects = resp.json().get("projects", [])
+        return {p["id"]: p.get("name", "") for p in projects if p.get("id")}
+    except Exception:
+        return {}
+
+
+# Resolves a task id to its project name using the id prefix (e.g. "P4a..-T3").
+def project_name_for_task(task_id: str, name_map: dict[str, str]) -> str:
+    """Return the project name whose id prefixes this task id, else ""."""
+    if not task_id or not name_map:
+        return ""
+    for pid, pname in name_map.items():
+        if pid and (task_id == pid or task_id.startswith(f"{pid}-")):
+            return pname
+    return ""
 
 
 # Finds the 3 tasks that best match the user's question using semantic search.
@@ -190,6 +220,7 @@ def _build_prompt_parts(
     live_events,
     full_graph,
     project_id: str | None = None,
+    project_names: dict[str, str] | None = None,
 ) -> list[str]:
     """Shared prompt builder used by both ask_clover and stream_answer."""
     if project_id and full_graph:
@@ -197,7 +228,16 @@ def _build_prompt_parts(
         full_graph["nodes"] = [n for n in full_graph.get("nodes", []) if n.get("id") in project_task_ids or n.get("type") == "developer"]
         full_graph["edges"] = [e for e in full_graph.get("edges", []) if e.get("source") in project_task_ids or e.get("target") in project_task_ids]
 
-    context_json = json.dumps(task_context, indent=2, ensure_ascii=False)
+    # Tag each task with its project name so Gemini can cite it (the graph only
+    # carries the project id, embedded in the task id). Best-effort — an empty
+    # map just means tasks are cited by id alone, as before.
+    name_map = fetch_project_names() if project_names is None else project_names
+    tagged_context = []
+    for task in task_context:
+        pname = project_name_for_task(str(task.get("id", "")), name_map)
+        tagged_context.append({**task, "project": pname} if pname else task)
+
+    context_json = json.dumps(tagged_context, indent=2, ensure_ascii=False)
     prompt_parts = [f"Task context:\n{context_json}"]
 
     if conversation_history:
@@ -261,12 +301,15 @@ def ask_clover(
     project_id: str | None = None,
     graph=_UNSET,
     live_events=_UNSET,
+    project_names: dict[str, str] | None = None,
 ) -> str:
     """Send retrieved tasks and graph context to Gemini and return an answer.
 
     `graph` and `live_events` may be passed in pre-fetched (see answer_question,
     which retrieves them in parallel with the semantic search). When left unset,
     they're fetched here so the CLI / direct callers keep working unchanged.
+    `project_names` is the {id: name} map for citing project names (fetched in
+    _build_prompt_parts when None).
     """
     full_graph = fetch_graph() if graph is _UNSET else graph
     if live_events is _UNSET:
@@ -277,7 +320,8 @@ def ask_clover(
 
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
-        question, task_context, conversation_history, live_events, full_graph, project_id
+        question, task_context, conversation_history, live_events, full_graph,
+        project_id, project_names,
     )
 
     response = client.models.generate_content(
@@ -327,18 +371,21 @@ def stream_answer(
     if not want_graph and not want_events:
         want_graph = want_events = True
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         tasks_future = pool.submit(search_top_tasks, question, api_key, project_id)
         graph_future = pool.submit(fetch_graph) if want_graph else None
         events_future = pool.submit(_safe_fetch_live_events) if want_events else None
+        names_future = pool.submit(fetch_project_names)
 
         relevant_tasks = tasks_future.result()
         graph = graph_future.result() if graph_future else None
         live_events = events_future.result() if events_future else None
+        project_names = names_future.result()
 
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
-        question, relevant_tasks, conversation_history, live_events, graph, project_id
+        question, relevant_tasks, conversation_history, live_events, graph,
+        project_id, project_names,
     )
 
     if task_update:
@@ -461,14 +508,16 @@ def answer_question(
     if not want_graph and not want_events:
         want_graph = want_events = True
 
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         tasks_future = pool.submit(search_top_tasks, question, api_key, project_id)
         graph_future = pool.submit(fetch_graph) if want_graph else None
         events_future = pool.submit(_safe_fetch_live_events) if want_events else None
+        names_future = pool.submit(fetch_project_names)
 
         relevant_tasks = tasks_future.result()
         graph = graph_future.result() if graph_future else None
         live_events = events_future.result() if events_future else None
+        project_names = names_future.result()
 
     return ask_clover(
         question,
@@ -478,6 +527,7 @@ def answer_question(
         project_id=project_id,
         graph=graph,
         live_events=live_events,
+        project_names=project_names,
     )
 
 
