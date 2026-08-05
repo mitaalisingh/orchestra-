@@ -801,6 +801,17 @@ _PROJECT_DEST_MAP = {
 }
 
 
+def _nav_match(keyword: str, q: str) -> bool:
+    """Return True if keyword or its singular/plural form appears in q."""
+    if keyword in q:
+        return True
+    if keyword.endswith("s") and keyword[:-1] in q:
+        return True
+    if not keyword.endswith("s") and keyword + "s" in q:
+        return True
+    return False
+
+
 def _detect_navigation(
     question: str,
     project_id: str | None,
@@ -813,13 +824,13 @@ def _detect_navigation(
 
     # Global pages first — no project_id needed
     for keyword, dest in _GLOBAL_DEST_MAP.items():
-        if keyword in q:
+        if _nav_match(keyword, q):
             return {"type": "navigate", "destination": dest}
 
     # Project-specific pages
     destination = None
     for keyword, dest in _PROJECT_DEST_MAP.items():
-        if keyword in q:
+        if _nav_match(keyword, q):
             destination = dest
             break
     if not destination:
