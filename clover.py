@@ -526,6 +526,14 @@ _TASK_ID_RE = re.compile(r'\bT\d+\b', re.IGNORECASE)
 _COMPLETED_RE = re.compile(r'\b(?:done|finish(?:ed)?|complet(?:ed)?|wrap(?:ped)?\s*up)\b', re.IGNORECASE)
 _IN_PROGRESS_RE = re.compile(r'\b(?:start(?:ing|ed)?|working\s+on|began|beginning|picking\s+up)\b', re.IGNORECASE)
 _BLOCKED_RE = re.compile(r'\b(?:block(?:ed)?|stuck|can\'t\s+(?:start|do|work))\b', re.IGNORECASE)
+# A question opens with one of these (or ends in "?"). The loose verb match must
+# not fire on those — "is T5 done?" / "who is working on T5?" are READS, not
+# commands, and must never mutate a task's status.
+_INTERROGATIVE_RE = re.compile(
+    r'^\s*(?:who|what|when|where|why|which|whose|whom|is|are|was|were|do|does|'
+    r'did|has|have|had|can|could|should|would|will|am|any|anyone|anybody)\b',
+    re.IGNORECASE,
+)
 
 
 def _detect_task_action(question: str) -> tuple[str, str] | None:
@@ -547,6 +555,13 @@ def _detect_task_action(question: str) -> tuple[str, str] | None:
             return task_id, "blocked"
         if any(w in label for w in ("upcoming", "todo")):
             return task_id, "upcoming"
+
+    # Below is the loose verb match. Only let it fire on a statement or command
+    # ("T5 is done", "finished T5"), never on a question ("is T5 done?", "who is
+    # working on T5?") — otherwise merely asking about a task mutated its status.
+    # The explicit "mark ... as" command above is exempt (already returned).
+    if question.strip().endswith("?") or _INTERROGATIVE_RE.match(question):
+        return None
 
     if _COMPLETED_RE.search(question):
         return task_id, "completed"
