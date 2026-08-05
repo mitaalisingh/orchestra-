@@ -15,6 +15,36 @@ from neo4j import GraphDatabase
 
 DEFAULT_STATUS = "upcoming"
 
+# The canonical status vocabulary the whole AI service uses (Clover, the PATCH
+# endpoint, standup, query all agree on these four). Anything else — legacy
+# values like "todo"/"pending", or a stray push — is coerced to one of these so
+# the graph never drifts out of sync with our own code again.
+CANONICAL_STATUSES = {"upcoming", "in_progress", "completed", "blocked"}
+_STATUS_ALIASES = {
+    "todo": "upcoming", "to do": "upcoming", "to_do": "upcoming",
+    "pending": "upcoming", "backlog": "upcoming",
+    "not_started": "upcoming", "not started": "upcoming",
+    "stopped": "blocked", "halted": "blocked",
+    "done": "completed", "complete": "completed",
+    "in progress": "in_progress", "inprogress": "in_progress", "active": "in_progress",
+}
+
+
+def normalize_status(raw) -> str:
+    """Coerce any status value to the canonical AI vocabulary.
+
+    upcoming / in_progress / completed / blocked. None, empty, or an
+    unrecognised value all fall back to 'upcoming' (not started).
+    """
+    if raw is None:
+        return DEFAULT_STATUS
+    key = str(raw).strip().lower()
+    if not key:
+        return DEFAULT_STATUS
+    if key in CANONICAL_STATUSES:
+        return key
+    return _STATUS_ALIASES.get(key, DEFAULT_STATUS)
+
 
 def create_constraints(session) -> None:
     """Ensure uniqueness constraints so MERGE stays idempotent and fast."""
@@ -41,7 +71,13 @@ def ingest_tasks(session, tasks: list[dict]) -> None:
     (gap_detected, missing_skill_or_role) when the source file provides them.
     Setting a property to null removes it in Neo4j, so tasks without a gap (or
     without timestamps) simply won't have those properties.
+
+    Every task's status is coerced to the canonical vocabulary first, so a
+    legacy value from the source ("todo", "pending", ...) can never re-enter the
+    graph and desync it from our code.
     """
+    for task in tasks:
+        task["status"] = normalize_status(task.get("status"))
     session.run(
         """
         UNWIND $tasks AS task
