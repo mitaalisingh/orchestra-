@@ -9,12 +9,25 @@ Run after ingest.py has populated the graph:
 """
 
 import os
+import re
 
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
-# Status enum per CONTRACTS.md §3: todo | in_progress | completed | blocked.
+# Status enum: upcoming | in_progress | completed | blocked.
 DONE_STATUS = "completed"
+
+# A task id is "{project_id}-T{n}" (e.g. "P4a584a19-T3"). Old sample ids like
+# "T1" have no project prefix. This recovers the project_id from the id so the
+# graph, the vector index, and Clover scoping always know a task's project even
+# when the node itself is missing the property.
+_PROJECT_ID_FROM_ID = re.compile(r"^(.*)-T\d+$")
+
+
+def project_id_from_task_id(task_id) -> str | None:
+    """Return the project_id embedded in a task id, or None if it has no prefix."""
+    m = _PROJECT_ID_FROM_ID.match(str(task_id or ""))
+    return m.group(1) if m else None
 
 
 def summary(session) -> None:
@@ -220,6 +233,7 @@ def get_all_tasks() -> list[dict]:
                        t.description AS description,
                        t.status AS status,
                        t.assigned_to AS assigned_to,
+                       t.project_id AS project_id,
                        dependencies,
                        t.created_at AS created_at,
                        t.updated_at AS updated_at
@@ -231,6 +245,12 @@ def get_all_tasks() -> list[dict]:
 
     for task in tasks:
         task["dependencies"] = sorted(task["dependencies"], key=_task_sort_key)
+        # Always expose project_id: prefer the stored property, fall back to the
+        # id prefix. Everything downstream (the vector index, Clover project /
+        # user scoping, capacity planning) filters on this, so it must never be
+        # missing for a task that belongs to a project.
+        if not task.get("project_id"):
+            task["project_id"] = project_id_from_task_id(task["id"])
     tasks.sort(key=lambda t: _task_sort_key(t["id"]))
     return tasks
 
