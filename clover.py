@@ -35,13 +35,12 @@ Use these rules to answer questions:
 - "What skills does X have?" or "Who can do X?" → prioritise graph context and task context
 - For all other questions → use whichever context is most relevant
 
-Always be specific — mention actual names, task IDs, titles, and timestamps in your answers. When a task has a "project" field, cite the project name alongside the task id, e.g. "Implement 'How to Use' UI (calculator app - Pb251a963-T14)". If the context does not contain enough information to answer, say so clearly.
+Always be specific — mention actual names, task titles, and timestamps in your answers. When referencing a task, cite its title and project name together, e.g. "Implement How to Use UI (calculator app)". Never include raw task IDs in your response — they appear separately as clickable cards. If the context does not contain enough information to answer, say so clearly.
 
 Formatting rules — strictly follow these:
 - Write in plain conversational text only. No markdown, no asterisks, no bold, no bullet symbols, no headers.
 - Use plain dashes (-) for lists if needed, nothing else.
-- Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail.
-- Never include raw task IDs (like Pb251a963-T14) in your text response. Reference tasks by title only. Task IDs are shown separately as clickable cards below your response."""
+- Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail."""
 
 
 # Fetches the full project list from the backend (best-effort).
