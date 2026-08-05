@@ -498,7 +498,11 @@ def stream_answer(
         if t.get("id") and t.get("title")
     ]
 
-    nav_action = _detect_repo_redirect(question, project_id, projects) or _detect_navigation(question, project_id, project_names)
+    nav_action = (
+        _detect_repo_redirect(question, project_id, projects)
+        or _detect_project_switch(question, project_names)
+        or _detect_navigation(question, project_id, project_names)
+    )
 
     updated_history = (conversation_history or []) + [
         {"question": question, "answer": full_answer}
@@ -647,6 +651,9 @@ def update_tasks_from_github(
 
 _REPO_KEYWORDS = {"open the repo", "open repo", "go to the repo", "open github", "github repo", "open the github", "repo link", "github link"}
 
+# Explicit project-switch intent (separate from general nav keywords)
+_SWITCH_KEYWORDS = {"switch to", "switch project", "change project", "change to"}
+
 
 def _detect_repo_redirect(question: str, project_id: str | None, projects: list[dict]) -> dict | None:
     """Return an open_url action if the question asks to open the GitHub repo."""
@@ -669,6 +676,27 @@ def _detect_repo_redirect(question: str, project_id: str | None, projects: list[
                 url = p.get("github_repo_url")
                 if url:
                     return {"type": "open_url", "url": url}
+
+    return None
+
+
+def _detect_project_switch(question: str, project_names: dict[str, str]) -> dict | None:
+    """Return a switch_project action if the question targets a specific project by name.
+
+    Triggers on explicit switch phrasing ("switch to X") OR general nav phrasing
+    ("take me to X", "open X") when X matches a known project name. The project
+    name match is the disambiguator — "take me to the dashboard" has no project
+    name and falls through to _detect_navigation, while "take me to PantryPal"
+    returns switch_project.
+    """
+    q = question.lower()
+    has_intent = any(kw in q for kw in _SWITCH_KEYWORDS) or any(kw in q for kw in _NAV_KEYWORDS)
+    if not has_intent:
+        return None
+
+    for pid, pname in project_names.items():
+        if pname and pname.lower() in q:
+            return {"type": "switch_project", "project_id": pid}
 
     return None
 
