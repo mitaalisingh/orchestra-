@@ -40,7 +40,8 @@ Always be specific — mention actual names, task IDs, titles, and timestamps in
 Formatting rules — strictly follow these:
 - Write in plain conversational text only. No markdown, no asterisks, no bold, no bullet symbols, no headers.
 - Use plain dashes (-) for lists if needed, nothing else.
-- Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail."""
+- Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail.
+- Never include raw task IDs (like Pb251a963-T14) in your text response. Reference tasks by title only. Task IDs are shown separately as clickable cards below your response."""
 
 
 # Fetches the full project list from the backend (best-effort).
@@ -422,6 +423,13 @@ def stream_answer(
         projects = projects_future.result()
         project_names = {p["id"]: p.get("name", "") for p in projects if p.get("id")}
 
+    # Scope graph to the user's projects so other users' tasks don't leak into context.
+    if graph and allowed_project_ids and not project_id:
+        all_tasks_for_scope = get_all_tasks()
+        allowed_task_ids = {t["id"] for t in all_tasks_for_scope if t.get("project_id") in allowed_project_ids}
+        graph["nodes"] = [n for n in graph.get("nodes", []) if n.get("id") in allowed_task_ids or n.get("type") == "developer"]
+        graph["edges"] = [e for e in graph.get("edges", []) if e.get("source") in allowed_task_ids or e.get("target") in allowed_task_ids]
+
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
         question, relevant_tasks, conversation_history, live_events, graph,
@@ -653,11 +661,13 @@ def _detect_repo_redirect(question: str, project_id: str | None, projects: list[
 
 _NAV_KEYWORDS = {"take me to", "open the", "open ", "go to", "show me the", "navigate to"}
 _DEST_MAP = {
-    "kanban": "kanban",
-    "board": "kanban",
+    "kanban": "workflow",
+    "board": "workflow",
     "workflow": "workflow",
-    "graph": "graph",
+    "graph": "workflow",
     "flow": "workflow",
+    "tasks": "tasks",
+    "list": "tasks",
 }
 
 
