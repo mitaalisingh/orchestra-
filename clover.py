@@ -43,6 +43,18 @@ Formatting rules — strictly follow these:
 - Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail."""
 
 
+# Fetches the full project list from the backend (best-effort).
+def fetch_projects() -> list[dict]:
+    """Return the raw projects list from the backend, or [] on any failure."""
+    backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
+    try:
+        resp = requests.get(f"{backend_url}/projects", timeout=30)
+        resp.raise_for_status()
+        return resp.json().get("projects", [])
+    except Exception:
+        return []
+
+
 # Fetches a {project_id: project_name} map from the backend (best-effort).
 def fetch_project_names() -> dict[str, str]:
     """Return {project_id: name} from the backend, or {} on any failure.
@@ -51,14 +63,7 @@ def fetch_project_names() -> dict[str, str]:
     "P4a584a19-T3"); the human-readable name lives in the backend's projects
     table. We pull it so Clover can cite "PantryPal" instead of a bare id.
     """
-    backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
-    try:
-        resp = requests.get(f"{backend_url}/projects", timeout=30)
-        resp.raise_for_status()
-        projects = resp.json().get("projects", [])
-        return {p["id"]: p.get("name", "") for p in projects if p.get("id")}
-    except Exception:
-        return {}
+    return {p["id"]: p.get("name", "") for p in fetch_projects() if p.get("id")}
 
 
 # Resolves a task id to its project name using the id prefix (e.g. "P4a..-T3").
@@ -70,6 +75,18 @@ def project_name_for_task(task_id: str, name_map: dict[str, str]) -> str:
         if pid and (task_id == pid or task_id.startswith(f"{pid}-")):
             return pname
     return ""
+
+
+# Resolves a user_id to their GitHub username via the backend.
+def fetch_github_username(user_id: str) -> str | None:
+    """Call GET /users/{user_id} and return github_username, or None on failure."""
+    backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
+    try:
+        resp = requests.get(f"{backend_url}/users/{user_id}", timeout=10)
+        resp.raise_for_status()
+        return resp.json().get("github_username")
+    except Exception:
+        return None
 
 
 # Fetches the list of project IDs the user belongs to from the backend.
@@ -388,18 +405,22 @@ def stream_answer(
     if not want_graph and not want_events:
         want_graph = want_events = True
 
-    with ThreadPoolExecutor(max_workers=5) as pool:
+    with ThreadPoolExecutor(max_workers=6) as pool:
         project_ids_future = pool.submit(fetch_user_project_ids, user_id) if user_id and not project_id else None
+        gh_username_future = pool.submit(fetch_github_username, user_id) if user_id and not github_username else None
         graph_future = pool.submit(fetch_graph) if want_graph else None
         events_future = pool.submit(_safe_fetch_live_events) if want_events else None
-        names_future = pool.submit(fetch_project_names)
+        projects_future = pool.submit(fetch_projects)
 
         allowed_project_ids = project_ids_future.result() if project_ids_future else None
+        if gh_username_future:
+            github_username = gh_username_future.result() or github_username
         tasks_future = pool.submit(search_top_tasks, question, api_key, project_id, allowed_project_ids)
         relevant_tasks = tasks_future.result()
         graph = graph_future.result() if graph_future else None
         live_events = events_future.result() if events_future else None
-        project_names = names_future.result()
+        projects = projects_future.result()
+        project_names = {p["id"]: p.get("name", "") for p in projects if p.get("id")}
 
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
@@ -449,7 +470,7 @@ def stream_answer(
         if t.get("id") and t.get("title")
     ]
 
-    nav_action = _detect_navigation(question, project_id, project_names)
+    nav_action = _detect_repo_redirect(question, project_id, projects) or _detect_navigation(question, project_id, project_names)
 
     updated_history = (conversation_history or []) + [
         {"question": question, "answer": full_answer}
@@ -579,6 +600,34 @@ def update_tasks_from_github(
             continue
 
     return updates
+
+
+_REPO_KEYWORDS = {"open the repo", "open repo", "go to the repo", "open github", "github repo", "open the github", "repo link", "github link"}
+
+
+def _detect_repo_redirect(question: str, project_id: str | None, projects: list[dict]) -> dict | None:
+    """Return an open_url action if the question asks to open the GitHub repo."""
+    q = question.lower()
+    if not any(kw in q for kw in _REPO_KEYWORDS):
+        return None
+
+    # Fuzzy-match project name from question first
+    for p in projects:
+        name = p.get("name", "")
+        if name and name.lower() in q:
+            url = p.get("github_repo_url")
+            if url:
+                return {"type": "open_url", "url": url}
+
+    # Fall back to current project_id
+    if project_id:
+        for p in projects:
+            if p.get("id") == project_id:
+                url = p.get("github_repo_url")
+                if url:
+                    return {"type": "open_url", "url": url}
+
+    return None
 
 
 _NAV_KEYWORDS = {"take me to", "open the", "open ", "go to", "show me the", "navigate to"}
