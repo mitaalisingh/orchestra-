@@ -13,6 +13,8 @@ import sys
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
+from query import project_id_from_task_id
+
 DEFAULT_STATUS = "upcoming"
 
 # The canonical status vocabulary the whole AI service uses (Clover, the PATCH
@@ -78,6 +80,11 @@ def ingest_tasks(session, tasks: list[dict]) -> None:
     """
     for task in tasks:
         task["status"] = normalize_status(task.get("status"))
+        # Persist project_id so the graph itself knows each task's project
+        # (Clover scoping, capacity planning, /tasks all rely on it). Prefer the
+        # value the caller set, fall back to the id prefix.
+        if not task.get("project_id"):
+            task["project_id"] = project_id_from_task_id(task.get("id"))
     session.run(
         """
         UNWIND $tasks AS task
@@ -87,6 +94,7 @@ def ingest_tasks(session, tasks: list[dict]) -> None:
             t.track = task.track,
             t.description = task.description,
             t.assigned_to = task.assigned_to,
+            t.project_id = task.project_id,
             t.status = coalesce(task.status, $default_status),
             t.created_at = task.created_at,
             t.updated_at = task.updated_at,
