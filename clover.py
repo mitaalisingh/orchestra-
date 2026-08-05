@@ -688,6 +688,12 @@ def _detect_project_switch(question: str, project_names: dict[str, str]) -> dict
     name match is the disambiguator — "take me to the dashboard" has no project
     name and falls through to _detect_navigation, while "take me to PantryPal"
     returns switch_project.
+
+    Matching is word-level so "open the amazon project workflow" matches a project
+    named "Amazon Clone" via the word "amazon", without requiring the full name.
+    Short words (≤3 chars) are skipped to avoid false positives on "the", "app" etc.
+    If the question also contains a project-page keyword (e.g. "workflow"), the
+    destination is included so the frontend can navigate directly to that page.
     """
     q = question.lower()
     has_intent = any(kw in q for kw in _SWITCH_KEYWORDS) or any(kw in q for kw in _NAV_KEYWORDS)
@@ -695,8 +701,18 @@ def _detect_project_switch(question: str, project_names: dict[str, str]) -> dict
         return None
 
     for pid, pname in project_names.items():
-        if pname and pname.lower() in q:
-            return {"type": "switch_project", "project_id": pid}
+        if not pname:
+            continue
+        name_words = [w for w in pname.lower().split() if len(w) > 3]
+        full_name = pname.lower()
+        if (full_name in q) or (name_words and any(w in q for w in name_words)):
+            action: dict = {"type": "switch_project", "project_id": pid}
+            # Include destination if a project-page keyword is also present
+            for keyword, dest in _PROJECT_DEST_MAP.items():
+                if keyword in q:
+                    action["destination"] = dest
+                    break
+            return action
 
     return None
 
