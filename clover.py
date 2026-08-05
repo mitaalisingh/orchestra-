@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import requests
@@ -43,16 +44,29 @@ Formatting rules — strictly follow these:
 - Keep responses concise — 3 to 6 sentences unless the question genuinely needs more detail."""
 
 
-# Fetches the full project list from the backend (best-effort).
+# Fetches the full project list from the backend (best-effort, retried).
 def fetch_projects() -> list[dict]:
-    """Return the raw projects list from the backend, or [] on any failure."""
+    """Return the raw projects list from the backend, or [] on repeated failure.
+
+    Retries once: the backend runs on a free tier that cold-starts, so the first
+    request after idle can time out or come back empty. A second attempt usually
+    hits a now-warm backend. This matters for navigation / project-switch, which
+    can't resolve a project by name without this list — a cold miss here is what
+    made "take me to <project>" return an empty, action-less response.
+    """
     backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
-    try:
-        resp = requests.get(f"{backend_url}/projects", timeout=30)
-        resp.raise_for_status()
-        return resp.json().get("projects", [])
-    except Exception:
-        return []
+    for attempt in range(2):
+        try:
+            resp = requests.get(f"{backend_url}/projects", timeout=30)
+            resp.raise_for_status()
+            projects = resp.json().get("projects", [])
+            if projects:
+                return projects
+        except Exception:
+            pass
+        if attempt == 0:
+            time.sleep(1)  # let a cold backend finish warming before the retry
+    return []
 
 
 # Fetches a {project_id: project_name} map from the backend (best-effort).
@@ -529,6 +543,21 @@ def stream_answer(
         if chunk.text:
             full_answer += chunk.text
             yield json.dumps({"chunk": chunk.text})
+
+    # Never let an empty answer reach the client — it renders the raw done-event
+    # JSON. Gemini can come back empty on a bare command (e.g. a nav request whose
+    # project the backend was too cold to resolve). Emit a sensible fallback so
+    # the user always sees text, and a nav miss reads as "try again", not silence.
+    if not full_answer.strip():
+        if nav_action:
+            full_answer = "Taking you there now."
+        elif any(kw in question.lower() for kw in _NAV_KEYWORDS):
+            full_answer = (
+                "I couldn't reach the project list just now — mind trying that again in a moment?"
+            )
+        else:
+            full_answer = "I don't have enough information to answer that right now."
+        yield json.dumps({"chunk": full_answer})
 
     task_updates: list[dict] = []
     if github_username and _needs_github_update(question):
