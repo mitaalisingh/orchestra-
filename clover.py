@@ -429,11 +429,34 @@ def stream_answer(
         graph["nodes"] = [n for n in graph.get("nodes", []) if n.get("id") in allowed_task_ids or n.get("type") == "developer"]
         graph["edges"] = [e for e in graph.get("edges", []) if e.get("source") in allowed_task_ids or e.get("target") in allowed_task_ids]
 
+    # Detect navigation/project-switch early so we can inject a confirmation hint
+    # into the prompt — otherwise a bare command like "open the amazon workflow"
+    # gives Gemini nothing to say and produces an empty response.
+    nav_action = (
+        _detect_repo_redirect(question, project_id, projects)
+        or _detect_project_switch(question, project_names)
+        or _detect_navigation(question, project_id, project_names)
+    )
+
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
         question, relevant_tasks, conversation_history, live_events, graph,
         project_id, project_names,
     )
+
+    if nav_action:
+        action_type = nav_action.get("type")
+        dest = nav_action.get("destination", "")
+        pid = nav_action.get("project_id", "")
+        pname = project_names.get(pid, "") if pid else ""
+        if action_type == "switch_project":
+            where = f"{dest} of {pname}" if dest and pname else (pname or dest or "the project")
+            prompt_parts.insert(0, f"System: Switching to {where}. Confirm this in one short casual sentence.")
+        elif action_type == "navigate":
+            where = f"{dest} page" + (f" for {pname}" if pname else "")
+            prompt_parts.insert(0, f"System: Navigating to the {where}. Confirm this in one short casual sentence.")
+        elif action_type == "open_url":
+            prompt_parts.insert(0, "System: Opening the GitHub repo. Confirm this in one short casual sentence.")
 
     if _needs_capacity_planning(question):
         all_tasks = get_all_tasks()
@@ -497,12 +520,6 @@ def stream_answer(
         for t in relevant_tasks
         if t.get("id") and t.get("title")
     ]
-
-    nav_action = (
-        _detect_repo_redirect(question, project_id, projects)
-        or _detect_project_switch(question, project_names)
-        or _detect_navigation(question, project_id, project_names)
-    )
 
     updated_history = (conversation_history or []) + [
         {"question": question, "answer": full_answer}
