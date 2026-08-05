@@ -451,12 +451,21 @@ def stream_answer(
         pname = project_names.get(pid, "") if pid else ""
         if action_type == "switch_project":
             where = f"{dest} of {pname}" if dest and pname else (pname or dest or "the project")
-            prompt_parts.insert(0, f"System: Switching to {where}. Confirm this in one short casual sentence.")
+            prompt_parts.insert(0,
+                f"System action complete: You are navigating the user to the {where}. "
+                "Do NOT say you cannot do this or that you lack information. "
+                "Simply confirm in one short casual sentence that you're taking them there right now.")
         elif action_type == "navigate":
             where = f"{dest} page" + (f" for {pname}" if pname else "")
-            prompt_parts.insert(0, f"System: Navigating to the {where}. Confirm this in one short casual sentence.")
+            prompt_parts.insert(0,
+                f"System action complete: You are navigating the user to the {where}. "
+                "Do NOT say you cannot do this or that you lack information. "
+                "Simply confirm in one short casual sentence that you're taking them there right now.")
         elif action_type == "open_url":
-            prompt_parts.insert(0, "System: Opening the GitHub repo. Confirm this in one short casual sentence.")
+            prompt_parts.insert(0,
+                "System action complete: You are opening the GitHub repo for the user. "
+                "Do NOT say you cannot do this. "
+                "Simply confirm in one short casual sentence that you're opening it.")
 
     if _needs_capacity_planning(question):
         all_tasks = get_all_tasks()
