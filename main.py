@@ -168,6 +168,7 @@ class CloverRequest(BaseModel):
     conversation_history: list[dict] = []
     project_id: str | None = None
     github_username: str | None = None
+    user_id: str | None = None
 
 
 class OnboardingRequest(BaseModel):
@@ -478,6 +479,7 @@ def clover(body: CloverRequest) -> StreamingResponse:
                 body.conversation_history,
                 project_id=body.project_id,
                 github_username=body.github_username,
+                user_id=body.user_id,
             ):
                 yield f"data: {chunk_json}\n\n"
         except Exception as exc:

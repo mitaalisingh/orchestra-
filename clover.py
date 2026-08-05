@@ -72,8 +72,21 @@ def project_name_for_task(task_id: str, name_map: dict[str, str]) -> str:
     return ""
 
 
+# Fetches the list of project IDs the user belongs to from the backend.
+def fetch_user_project_ids(user_id: str) -> list[str]:
+    """Return project IDs the user created or is a member of. Empty list on failure."""
+    backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
+    try:
+        resp = requests.get(f"{backend_url}/projects", params={"user_id": user_id}, timeout=10)
+        resp.raise_for_status()
+        projects = resp.json().get("projects", [])
+        return [p["id"] for p in projects if p.get("id")]
+    except Exception:
+        return []
+
+
 # Finds the 3 tasks that best match the user's question using semantic search.
-def search_top_tasks(question: str, api_key: str, project_id: str | None = None) -> list[dict]:
+def search_top_tasks(question: str, api_key: str, project_id: str | None = None, allowed_project_ids: list[str] | None = None) -> list[dict]:
     """Find the 3 most relevant tasks using the shared, cached ChromaDB index."""
     tasks = get_all_tasks()
     if not tasks:
@@ -93,6 +106,8 @@ def search_top_tasks(question: str, api_key: str, project_id: str | None = None)
     }
     if project_id:
         query_kwargs["where"] = {"project_id": project_id}
+    elif allowed_project_ids:
+        query_kwargs["where"] = {"project_id": {"$in": allowed_project_ids}}
     results = collection.query(**query_kwargs)
 
     metadatas = results.get("metadatas", [[]])[0]
@@ -343,6 +358,7 @@ def stream_answer(
     conversation_history: list[dict] = None,
     project_id: str | None = None,
     github_username: str | None = None,
+    user_id: str | None = None,
 ):
     """Retrieve context in parallel, then stream Gemini's answer chunk by chunk.
 
@@ -372,12 +388,14 @@ def stream_answer(
     if not want_graph and not want_events:
         want_graph = want_events = True
 
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        tasks_future = pool.submit(search_top_tasks, question, api_key, project_id)
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        project_ids_future = pool.submit(fetch_user_project_ids, user_id) if user_id and not project_id else None
         graph_future = pool.submit(fetch_graph) if want_graph else None
         events_future = pool.submit(_safe_fetch_live_events) if want_events else None
         names_future = pool.submit(fetch_project_names)
 
+        allowed_project_ids = project_ids_future.result() if project_ids_future else None
+        tasks_future = pool.submit(search_top_tasks, question, api_key, project_id, allowed_project_ids)
         relevant_tasks = tasks_future.result()
         graph = graph_future.result() if graph_future else None
         live_events = events_future.result() if events_future else None
