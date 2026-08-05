@@ -428,6 +428,27 @@ def stream_answer(
         project_id, project_names,
     )
 
+    if _needs_capacity_planning(question):
+        all_tasks = get_all_tasks()
+        if project_id:
+            scoped_tasks = [t for t in all_tasks if t.get("project_id") == project_id]
+        elif allowed_project_ids:
+            scoped_tasks = [t for t in all_tasks if t.get("project_id") in allowed_project_ids]
+        else:
+            scoped_tasks = all_tasks
+        user_hint = f" The user's GitHub username is {github_username} — use this to identify which tasks are assigned to them (the assigned_to field may use their display name or a variation of it)." if github_username else ""
+        prompt_parts.insert(
+            0,
+            f"Capacity planning context:{user_hint} The user is asking how much they can realistically get done.\n"
+            f"Full task list:\n{json.dumps(scoped_tasks, indent=2, ensure_ascii=False)}\n\n"
+            "Rules for a realistic estimate:\n"
+            "- A focused developer can typically complete 2-3 tasks per day.\n"
+            "- Prioritise tasks already in_progress (finishing beats starting).\n"
+            "- Next pick high-priority todos with no unresolved blockers.\n"
+            "- Skip blocked tasks entirely for today.\n"
+            "- Be honest and specific — name exactly which tasks to focus on and why, don't just list everything.",
+        )
+
     if task_update:
         if task_update["success"]:
             prompt_parts.insert(
@@ -670,6 +691,12 @@ def _detect_navigation(
 
 _GRAPH_KEYWORDS = {"block", "depend", "skill", "assign", "who is", "who can", "owner", "relationship", "working on", "work on", "assigned to", "responsible"}
 _EVENT_KEYWORDS = {"recent", "today", "yesterday", "commit", "push", "discord", "did", "doing", "worked", "activity", "update", "lately", "last week", "this week"}
+_CAPACITY_KEYWORDS = {
+    "how much can i", "how many can i", "realistically finish", "realistically complete",
+    "get done today", "finish today", "finish this week", "accomplish today",
+    "complete today", "my workload", "my capacity", "how productive",
+    "how busy am i", "what can i finish", "what can i get done", "what can i realistically",
+}
 
 
 def _needs_graph(question: str) -> bool:
@@ -680,6 +707,11 @@ def _needs_graph(question: str) -> bool:
 def _needs_events(question: str) -> bool:
     q = question.lower()
     return any(kw in q for kw in _EVENT_KEYWORDS)
+
+
+def _needs_capacity_planning(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _CAPACITY_KEYWORDS)
 
 
 # Answers a question, running the three independent retrievals concurrently.
