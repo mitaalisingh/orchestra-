@@ -130,6 +130,19 @@ def search_top_tasks(question: str, api_key: str, project_id: str | None = None,
     metadatas = results.get("metadatas", [[]])[0]
     distances = results.get("distances", [[]])[0]
 
+    # If the project has no tasks in the index, fall back to global search so
+    # Clover can still answer — the user shouldn't need to know a blueprint
+    # hasn't been run yet.
+    if not metadatas and (project_id or allowed_project_ids):
+        fallback_kwargs = {
+            "query_embeddings": [query_embedding],
+            "n_results": 3,
+            "include": ["metadatas", "distances"],
+        }
+        results = collection.query(**fallback_kwargs)
+        metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+
     matches: list[dict] = []
     for i, metadata in enumerate(metadatas):
         distance = distances[i] if i < len(distances) else None
