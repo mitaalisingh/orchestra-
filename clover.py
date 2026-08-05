@@ -673,15 +673,48 @@ def _detect_repo_redirect(question: str, project_id: str | None, projects: list[
     return None
 
 
-_NAV_KEYWORDS = {"take me to", "open the", "open ", "go to", "show me the", "navigate to"}
-_DEST_MAP = {
+_NAV_KEYWORDS = {"take me to", "open the", "open ", "go to", "show me the", "navigate to", "show me my", "i want to see"}
+
+# Global pages — no project_id needed
+_GLOBAL_DEST_MAP = {
+    "dashboard": "dashboard",
+    "home": "dashboard",
+    "my projects": "projects",
+    "all projects": "projects",
+    "projects page": "projects",
+    "todo": "todo",
+    "to do": "todo",
+    "my tasks": "todo",
+    "calendar": "calendar",
+    "schedule": "calendar",
+    "archive": "archive",
+    "archived": "archive",
+    "profile": "profile",
+    "my profile": "profile",
+    "account": "profile",
+    "settings": "settings",
+    "workspaces": "workspaces",
+    "integrations": "workspaces",
+    "connected platforms": "workspaces",
+    "connections": "workspaces",
+    "help": "help",
+}
+
+# Project-specific pages — need project_id
+_PROJECT_DEST_MAP = {
+    "workflow": "workflow",
     "kanban": "workflow",
     "board": "workflow",
-    "workflow": "workflow",
     "graph": "workflow",
     "flow": "workflow",
-    "tasks": "tasks",
-    "list": "tasks",
+    "task list": "tasks",
+    "team": "team",
+    "members": "team",
+    "activity": "activity",
+    "events": "activity",
+    "event log": "activity",
+    "blueprint": "blueprint",
+    "modify": "blueprint",
 }
 
 
@@ -695,8 +728,14 @@ def _detect_navigation(
     if not any(kw in q for kw in _NAV_KEYWORDS):
         return None
 
+    # Global pages first — no project_id needed
+    for keyword, dest in _GLOBAL_DEST_MAP.items():
+        if keyword in q:
+            return {"type": "navigate", "destination": dest}
+
+    # Project-specific pages
     destination = None
-    for keyword, dest in _DEST_MAP.items():
+    for keyword, dest in _PROJECT_DEST_MAP.items():
         if keyword in q:
             destination = dest
             break
