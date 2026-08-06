@@ -50,6 +50,7 @@ Rules:
 - Add exactly one "assigned_to" for every task.
 - "assigned_to" must be one of the member names from the team skills JSON.
 - Choose the best fit based on relevant skills and task type.
+- Distribute tasks as evenly as possible across all team members. No one person should receive more than twice the number of tasks assigned to the person with the fewest tasks.
 - Preserve dependency ids exactly as provided.
 - Output JSON only. No markdown, no prose, no extra keys outside the described structure.
 """
