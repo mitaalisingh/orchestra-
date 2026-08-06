@@ -362,7 +362,6 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
         blueprint = generate_blueprint(
             name, description, tech_stack,
             project_id=body.project_id,
-            member_count=len(body.members) if body.members else 1,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
