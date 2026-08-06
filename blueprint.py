@@ -53,6 +53,7 @@ comments, or any text outside the JSON. The JSON must match this exact schema:
 }}
 
 Rules:
+- The team has {member_count} member(s). Generate a task list that fits this team size — avoid creating so many tasks that the team is overwhelmed, or so few that the roadmap is too vague.
 - Use short stable ids like {project_id}-T1, {project_id}-T2, {project_id}-T3 ... always prefix every task id with the project_id
 - "track" should be automatically chosen based on the type of work involved in each task.
 - Use concise, descriptive track names such as "frontend", "backend", "AI", "mobile", "devops", "database", "design", "qa", "security", etc.
@@ -66,6 +67,47 @@ Rules:
 - Prefer the listed tech stack when shaping tasks; cover the full stack needed to ship (UI, APIs, data, AI/ML pieces as relevant).
 - "summary" must be a short, plain-English explanation (3-5 sentences) of how you broke the work down and why — written so a teammate can quickly grasp the reasoning behind the task order and structure without reading every task.
 - Output JSON only. The "summary" field is the only place for explanation — do not add any text outside the JSON object itself."""
+
+
+def _remove_cycles(tasks: list[dict]) -> list[dict]:
+    """Remove dependency edges that form cycles. Mutates tasks in place and returns them."""
+    deps: dict[str, list[str]] = {t["id"]: list(t.get("dependencies", [])) for t in tasks}
+    valid_ids = set(deps.keys())
+
+    visited: set[str] = set()
+    in_stack: set[str] = set()
+    to_remove: list[tuple[str, str]] = []
+
+    def dfs(node: str) -> None:
+        if node in in_stack:
+            return
+        if node in visited:
+            return
+        visited.add(node)
+        in_stack.add(node)
+        for dep in list(deps.get(node, [])):
+            if dep not in valid_ids:
+                to_remove.append((node, dep))
+            elif dep in in_stack:
+                to_remove.append((node, dep))
+            else:
+                dfs(dep)
+        in_stack.discard(node)
+
+    for task_id in list(deps.keys()):
+        if task_id not in visited:
+            dfs(task_id)
+
+    for task_id, dep_id in to_remove:
+        if dep_id in deps.get(task_id, []):
+            deps[task_id].remove(dep_id)
+
+    task_map = {t["id"]: t for t in tasks}
+    for task_id, clean_deps in deps.items():
+        if task_id in task_map:
+            task_map[task_id]["dependencies"] = clean_deps
+
+    return tasks
 
 
 def extract_json(text: str) -> str:
@@ -92,6 +134,7 @@ def generate_blueprint(
     description: str,
     tech_stack: list[str] | None = None,
     project_id: str | None = None,
+    member_count: int = 1,
 ) -> dict:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     if not GEMINI_API_KEY:
@@ -116,6 +159,7 @@ def generate_blueprint(
             description=description,
             tech_stack=tech_stack_text,
             project_id=project_id,
+            member_count=member_count,
         ),
         config=types.GenerateContentConfig(
             temperature=0.0,
@@ -135,6 +179,7 @@ def generate_blueprint(
 
     blueprint["project_name"] = name
     blueprint["project_id"] = project_id
+    blueprint["tasks"] = _remove_cycles(blueprint.get("tasks", []))
     return blueprint
 
 

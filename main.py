@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from assign import assign_tasks, fetch_skills_from_neo4j
 from blueprint import extract_json, generate_blueprint
 from ingest import ingest_all
+from skill_gap import analyze_skill_gaps
 from clover import answer_question, stream_answer
 from commit_intel import fetch_live_events, main as run_commit_intel
 from graph_query import build_reactflow_graph, merge_developer_skills
@@ -359,7 +360,9 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
 
     try:
         blueprint = generate_blueprint(
-            name, description, tech_stack, project_id=body.project_id
+            name, description, tech_stack,
+            project_id=body.project_id,
+            member_count=len(body.members) if body.members else 1,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -393,6 +396,24 @@ def create_blueprint(body: BlueprintRequest) -> dict[str, Any]:
         # orphaned (project_id null) and never surface under the project.
         for task in assigned.get("tasks", []):
             task["project_id"] = project_id
+
+        # Detect skill gaps and stamp them onto tasks before ingestion so
+        # Neo4j stores gap_detected / missing_skill_or_role from the start.
+        try:
+            gap_report = analyze_skill_gaps({"tasks": assigned.get("tasks", []), "project_name": name}, skills, api_key)
+            gap_by_id = {t["id"]: t for t in gap_report.get("tasks", [])}
+            for task in assigned.get("tasks", []):
+                gap_task = gap_by_id.get(task["id"], {})
+                task["gap_detected"] = gap_task.get("gap_detected", False)
+                task["missing_skill_or_role"] = gap_task.get("missing_skill_or_role")
+            assigned["skill_gaps"] = [
+                {"id": t["id"], "title": t["title"], "missing": t.get("missing_skill_or_role")}
+                for t in assigned.get("tasks", [])
+                if t.get("gap_detected")
+            ]
+        except Exception:
+            pass
+
         ingest_all(assigned.get("tasks", []), skills)
         # Push the project FIRST so its row (with our pinned id) exists before the
         # tasks reference it — avoids the backend auto-creating a bare stub project.
