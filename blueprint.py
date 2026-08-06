@@ -57,7 +57,7 @@ Rules:
 - "track" should be automatically chosen based on the type of work involved in each task.
 - Use concise, descriptive track names such as "frontend", "backend", "AI", "mobile", "devops", "database", "design", "qa", "security", etc.
 - Keep track naming consistent across tasks.
-- "dependencies" is an array of task ids this task depends on (use [] if none).
+- "dependencies" is an array of task ids this task depends on (use [] if none). Where tasks can be done independently and in parallel, model them with no dependency on each other — do not chain tasks sequentially unless one truly cannot start before another finishes.
 - "status" must always be "upcoming".
 - "priority" must be exactly one of: "high", "medium", "low", based on task importance.
 - "deadline" must be an ISO 8601 datetime string. Estimate a realistic deadline for each task starting from today, taking into account task complexity, priority, and dependencies — higher priority and tasks with no dependencies should have earlier deadlines. Spread deadlines across the project timeline so the full project completes within a reasonable timeframe.
