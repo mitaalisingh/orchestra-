@@ -53,7 +53,6 @@ comments, or any text outside the JSON. The JSON must match this exact schema:
 }}
 
 Rules:
-- The team has {member_count} member(s). Generate a task list that fits this team size — avoid creating so many tasks that the team is overwhelmed, or so few that the roadmap is too vague.
 - Use short stable ids like {project_id}-T1, {project_id}-T2, {project_id}-T3 ... always prefix every task id with the project_id
 - "track" should be automatically chosen based on the type of work involved in each task.
 - Use concise, descriptive track names such as "frontend", "backend", "AI", "mobile", "devops", "database", "design", "qa", "security", etc.
@@ -134,7 +133,6 @@ def generate_blueprint(
     description: str,
     tech_stack: list[str] | None = None,
     project_id: str | None = None,
-    member_count: int = 1,
 ) -> dict:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     if not GEMINI_API_KEY:
@@ -159,7 +157,6 @@ def generate_blueprint(
             description=description,
             tech_stack=tech_stack_text,
             project_id=project_id,
-            member_count=member_count,
         ),
         config=types.GenerateContentConfig(
             temperature=0.0,
