@@ -116,9 +116,9 @@ def fetch_user_project_ids(user_id: str) -> list[str]:
         return []
 
 
-# Finds the 3 tasks that best match the user's question using semantic search.
+# Finds the top tasks that best match the user's question using semantic search.
 def search_top_tasks(question: str, api_key: str, project_id: str | None = None, allowed_project_ids: list[str] | None = None) -> list[dict]:
-    """Find the 3 most relevant tasks using the shared, cached ChromaDB index."""
+    """Find the most relevant tasks using the shared, cached ChromaDB index."""
     tasks = get_all_tasks()
     if not tasks:
         return []
@@ -132,7 +132,7 @@ def search_top_tasks(question: str, api_key: str, project_id: str | None = None,
     query_embedding = get_embedding(embed_client, question)
     query_kwargs: dict = {
         "query_embeddings": [query_embedding],
-        "n_results": 3,
+        "n_results": 15,
         "include": ["metadatas", "distances"],
     }
     if project_id:
@@ -150,7 +150,7 @@ def search_top_tasks(question: str, api_key: str, project_id: str | None = None,
     if not metadatas and (project_id or allowed_project_ids):
         fallback_kwargs = {
             "query_embeddings": [query_embedding],
-            "n_results": 3,
+            "n_results": 15,
             "include": ["metadatas", "distances"],
         }
         results = collection.query(**fallback_kwargs)
