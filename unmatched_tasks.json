@@ -1,0 +1,1887 @@
+[
+  {
+    "id": "fe735392-7773-4c4f-b524-98b3183d6240",
+    "title": "Create design system tokens for dashboard",
+    "status": "completed",
+    "track": "design",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "0fb29b7b-e64d-4686-a4bf-c85f4e23dff1",
+    "title": "Regression test status transition history",
+    "status": "completed",
+    "track": "qa",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "fe735392-7773-4c4f-b524-98b3183d6240",
+      "860be26c-0aec-4f2d-98f1-17116ab699fb"
+    ]
+  },
+  {
+    "id": "d01aa2e3-90e9-4c7f-8e81-a5ce66319aa4",
+    "title": "Design onboarding flow for new teams",
+    "status": "completed",
+    "track": "design",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "860be26c-0aec-4f2d-98f1-17116ab699fb"
+    ]
+  },
+  {
+    "id": "c73a0b0e-0b59-4483-98df-768f92b19963",
+    "title": "Add real-time task status updates",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "d01aa2e3-90e9-4c7f-8e81-a5ce66319aa4"
+    ]
+  },
+  {
+    "id": "1af892f7-ee7e-4ad3-aa3d-0289418fddfa",
+    "title": "Test task distribution fairness",
+    "status": "completed",
+    "track": "qa",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "c73a0b0e-0b59-4483-98df-768f92b19963",
+      "d01aa2e3-90e9-4c7f-8e81-a5ce66319aa4"
+    ]
+  },
+  {
+    "id": "ba6380a4-5e3b-467b-83ac-914ea35f21ab",
+    "title": "Design task detail side panel",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "363fffc3-743a-406a-be64-4aab64045502",
+    "title": "Implement member workload view",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "890d1052-06e9-4685-8400-158d968e316b",
+    "title": "Add monitoring and alerting for task API",
+    "status": "todo",
+    "track": "devops",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "363fffc3-743a-406a-be64-4aab64045502"
+    ]
+  },
+  {
+    "id": "a079fd66-52c3-46a3-9c62-c832100c6b36",
+    "title": "Write contributor onboarding guide",
+    "status": "in_progress",
+    "track": "docs",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "569de57b-074f-4dd0-a234-15e1acde151c",
+    "title": "Implement NLP project-description parser",
+    "status": "in_progress",
+    "track": "backend",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "ba6380a4-5e3b-467b-83ac-914ea35f21ab"
+    ]
+  },
+  {
+    "id": "c9e18c18-4e2a-4c47-918c-f12fd776d1ca",
+    "title": "Implement task history audit log",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "df8552e2-ae95-41e8-9b24-1386b2a7e3cc",
+    "title": "Build task assignment algorithm",
+    "status": "in_progress",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "0ef32241-473f-424e-b20b-cf2fd18c40d0",
+    "title": "Write API documentation for task endpoints",
+    "status": "completed",
+    "track": "docs",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "0938688b-70c0-4abe-954c-2b4194adf2f3"
+    ]
+  },
+  {
+    "id": "b99c8e70-55b1-4e21-a73f-9653019e4244",
+    "title": "Test task distribution fairness (follow-up)",
+    "status": "blocked",
+    "track": "qa",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "89d6e0a3-fc37-4f19-876b-910a1185d10d",
+      "f5231d57-8c7b-4eb8-a649-a1799362353b"
+    ]
+  },
+  {
+    "id": "89d6e0a3-fc37-4f19-876b-910a1185d10d",
+    "title": "Create design system tokens for dashboard (follow-up)",
+    "status": "upcoming",
+    "track": "design",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "e977566e-ee07-43c0-8e90-42480d2c8aaf",
+    "title": "Create webhook listener for GitHub PR events",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "2791afe2-73c4-4d8b-ae75-8e9e624d162a",
+      "df8552e2-ae95-41e8-9b24-1386b2a7e3cc",
+      "979cbb38-92eb-4d93-83dd-c1ddbdc500e0"
+    ]
+  },
+  {
+    "id": "9ad22f02-0597-4fe2-9a94-49c09294dd16",
+    "title": "Configure Neon branching for preview environments",
+    "status": "todo",
+    "track": "devops",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "d01aa2e3-90e9-4c7f-8e81-a5ce66319aa4"
+    ]
+  },
+  {
+    "id": "01b7c9aa-4442-460a-b09b-0ca2cf7daa9e",
+    "title": "Design task-distribution engine API",
+    "status": "in_progress",
+    "track": "backend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "79f671d4-37f8-4970-b3a6-8afccfa66648",
+    "title": "Write contributor onboarding guide (follow-up)",
+    "status": "in_progress",
+    "track": "docs",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "96d8e24b-c439-4dd4-8231-10d22dceee97"
+    ]
+  },
+  {
+    "id": "c9ee17c2-eeb8-48d1-a9b4-df0ec7237120",
+    "title": "Design onboarding flow for new teams (follow-up)",
+    "status": "todo",
+    "track": "design",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "f5231d57-8c7b-4eb8-a649-a1799362353b",
+    "title": "Add real-time task status updates (follow-up)",
+    "status": "completed",
+    "track": "frontend",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "96d8e24b-c439-4dd4-8231-10d22dceee97",
+      "733fd419-8e89-47a1-8636-ba37b784aacf"
+    ]
+  },
+  {
+    "id": "f8a73859-9725-4ed0-be74-eca665434636",
+    "title": "Design task detail side panel (follow-up)",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "79f671d4-37f8-4970-b3a6-8afccfa66648",
+      "89d6e0a3-fc37-4f19-876b-910a1185d10d",
+      "96d8e24b-c439-4dd4-8231-10d22dceee97"
+    ]
+  },
+  {
+    "id": "4739c878-958c-45cc-9caa-80e96cf6abcb",
+    "title": "Design task card visual states (follow-up)",
+    "status": "in_progress",
+    "track": "design",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "c9ee17c2-eeb8-48d1-a9b4-df0ec7237120",
+      "b99c8e70-55b1-4e21-a73f-9653019e4244"
+    ]
+  },
+  {
+    "id": "65e7235f-fa07-4e53-b51f-ee98cd5c3c86",
+    "title": "Design empty and error states",
+    "status": "in_progress",
+    "track": "design",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "324f8a67-a21b-4f58-901c-5c8eb773319d",
+    "title": "Write checkout flow test suite",
+    "status": "completed",
+    "track": "qa",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "2e2a4d8b-9016-43c3-9020-e4922eadb5a0",
+    "title": "Build checkout flow screens",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "196d7610-ca61-4917-8ef3-55b6b9657dcf",
+    "title": "Design product detail page",
+    "status": "blocked",
+    "track": "design",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "e1728d4a-a278-4838-95a5-bd17b6aa6788",
+    "title": "Add push notification handling",
+    "status": "in_progress",
+    "track": "frontend",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "195288cb-4d4b-4365-ac36-454741ec9378",
+    "title": "Build product catalog API",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": [
+      "65e7235f-fa07-4e53-b51f-ee98cd5c3c86"
+    ]
+  },
+  {
+    "id": "fd28fc59-ade7-4c11-afa9-1c72b0e65862",
+    "title": "Set up app store release pipeline",
+    "status": "in_progress",
+    "track": "devops",
+    "assigned_to": "Member 1",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": [
+      "e1728d4a-a278-4838-95a5-bd17b6aa6788"
+    ]
+  },
+  {
+    "id": "962614fa-04a9-43d3-9b9c-c56a4b3ae7e7",
+    "title": "Implement cart and checkout service",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "90993ef8-f4cd-4113-a042-9278d5c21353",
+    "title": "Integrate payment gateway",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": [
+      "2e2a4d8b-9016-43c3-9020-e4922eadb5a0",
+      "962614fa-04a9-43d3-9b9c-c56a4b3ae7e7"
+    ]
+  },
+  {
+    "id": "c85a6ed0-06d6-42c4-b7e3-17ea4119a7f1",
+    "title": "Build product listing screen",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": [
+      "324f8a67-a21b-4f58-901c-5c8eb773319d",
+      "fd28fc59-ade7-4c11-afa9-1c72b0e65862"
+    ]
+  },
+  {
+    "id": "2941afb6-d58e-4e5e-b67a-d87ab4ddc6c2",
+    "title": "Add inventory sync job",
+    "status": "in_progress",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-ecommerce-mitaali",
+    "depends_on": []
+  },
+  {
+    "id": "bccea131-39b9-4051-b03a-0408a5632f31",
+    "title": "Build workout timer screen",
+    "status": "completed",
+    "track": "frontend",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-fitness-prince",
+    "depends_on": []
+  },
+  {
+    "id": "ab64f740-71e8-401e-86fa-14b15e7f662d",
+    "title": "Implement step-count sync service",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-fitness-prince",
+    "depends_on": []
+  },
+  {
+    "id": "16f39a25-f25e-4c8d-a746-b0cebf5f6a87",
+    "title": "Build progress charts screen",
+    "status": "in_progress",
+    "track": "frontend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "74d9fefc-92c2-4189-8d29-07883cb57720"
+    ]
+  },
+  {
+    "id": "1e3e3e29-863c-4f14-9253-1494c85bf848",
+    "title": "Build workout logging API",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "2e5b1ba2-c54f-4579-bbdb-04f833438081"
+    ]
+  },
+  {
+    "id": "00d12304-23b6-4afc-af86-5c7e994f2ef9",
+    "title": "Set up crash reporting",
+    "status": "todo",
+    "track": "devops",
+    "assigned_to": "Member 1",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "bccea131-39b9-4051-b03a-0408a5632f31"
+    ]
+  },
+  {
+    "id": "83c88c06-a40f-41a5-a777-4a11a23d24bc",
+    "title": "Add streak and achievement engine",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-fitness-prince",
+    "depends_on": []
+  },
+  {
+    "id": "646cb356-ed72-4215-aa21-8b136b44aa59",
+    "title": "Build workout timer screen",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "1e3e3e29-863c-4f14-9253-1494c85bf848",
+      "56d93091-7d42-42c3-8f60-e1c09f0c119c"
+    ]
+  },
+  {
+    "id": "74d9fefc-92c2-4189-8d29-07883cb57720",
+    "title": "Test wearable data sync edge cases",
+    "status": "completed",
+    "track": "qa",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-fitness-prince",
+    "depends_on": []
+  },
+  {
+    "id": "be75046a-10f2-4682-ac18-1e49ab62f944",
+    "title": "Design achievement badge system",
+    "status": "in_progress",
+    "track": "design",
+    "assigned_to": "Member 2",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "74d9fefc-92c2-4189-8d29-07883cb57720",
+      "16f39a25-f25e-4c8d-a746-b0cebf5f6a87"
+    ]
+  },
+  {
+    "id": "1609cfc6-7db2-456c-a1dd-5af2d23c1fd8",
+    "title": "Test wearable data sync edge cases",
+    "status": "completed",
+    "track": "qa",
+    "assigned_to": "Member 2",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "ab64f740-71e8-401e-86fa-14b15e7f662d"
+    ]
+  },
+  {
+    "id": "b44c4805-2962-4a09-b8ec-418273678e91",
+    "title": "Implement step-count sync service",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "1609cfc6-7db2-456c-a1dd-5af2d23c1fd8"
+    ]
+  },
+  {
+    "id": "1a3e542b-75cf-4ef1-afd5-3c510e3b2086",
+    "title": "Build feed and discovery page",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "198f70d4-313c-4444-adad-1be094519443",
+    "title": "Add comment and rating service",
+    "status": "in_progress",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "8784029a-7e11-48f9-9198-2fb9670bff19",
+    "title": "Implement recipe search with tags",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "f8dd6f1b-3b21-4fdc-99c6-549c4a4b0e91",
+    "title": "Design recipe card layout",
+    "status": "todo",
+    "track": "design",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-recipe-naman",
+    "depends_on": [
+      "1a3e542b-75cf-4ef1-afd5-3c510e3b2086"
+    ]
+  },
+  {
+    "id": "b25ecb36-7339-40e2-b728-8dbf7cda7db6",
+    "title": "Build recipe CRUD API",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "ea5ffc0f-1d2b-4cf5-9721-41994451c1d0",
+    "title": "Build recipe editor UI",
+    "status": "completed",
+    "track": "frontend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-recipe-naman",
+    "depends_on": [
+      "b25ecb36-7339-40e2-b728-8dbf7cda7db6",
+      "198f70d4-313c-4444-adad-1be094519443"
+    ]
+  },
+  {
+    "id": "c5f7ce3a-e9be-496f-beb8-3fe55bb0d3f5",
+    "title": "Set up CDN for recipe images",
+    "status": "completed",
+    "track": "devops",
+    "assigned_to": "Member 1",
+    "project_id": "proj-recipe-naman",
+    "depends_on": [
+      "f8dd6f1b-3b21-4fdc-99c6-549c4a4b0e91",
+      "8784029a-7e11-48f9-9198-2fb9670bff19"
+    ]
+  },
+  {
+    "id": "31028187-57f5-4c6d-a594-b39db53458c8",
+    "title": "Test image upload pipeline",
+    "status": "in_progress",
+    "track": "qa",
+    "assigned_to": "Member 1",
+    "project_id": "proj-recipe-naman",
+    "depends_on": [
+      "8784029a-7e11-48f9-9198-2fb9670bff19",
+      "b25ecb36-7339-40e2-b728-8dbf7cda7db6"
+    ]
+  },
+  {
+    "id": "fee725c1-4549-40b2-a3f8-0c6d391a544f",
+    "title": "Build feed and discovery page",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-recipe-naman",
+    "depends_on": [
+      "c5f7ce3a-e9be-496f-beb8-3fe55bb0d3f5"
+    ]
+  },
+  {
+    "id": "7b480013-e6f7-4d69-a3c6-31cc735b3ac3",
+    "title": "Add comment and rating service",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "28746f88-8069-451d-aba2-919c62c6bc78",
+    "title": "Implement recipe search with tags",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-recipe-naman",
+    "depends_on": [
+      "ea5ffc0f-1d2b-4cf5-9721-41994451c1d0",
+      "fee725c1-4549-40b2-a3f8-0c6d391a544f"
+    ]
+  },
+  {
+    "id": "581187f4-7ae7-42c1-917f-409f57dddc87",
+    "title": "Design recipe card layout",
+    "status": "todo",
+    "track": "design",
+    "assigned_to": "Member 2",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "40db1954-e269-41d9-abd8-9007c0834fd7",
+    "title": "Build recipe CRUD API",
+    "status": "in_progress",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-recipe-naman",
+    "depends_on": []
+  },
+  {
+    "id": "806093cd-f7d6-4450-8d31-38016c6c9ff4",
+    "title": "Design net-worth tracking screen",
+    "status": "in_progress",
+    "track": "design",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "71214029-2813-4339-b0b1-50ec215417bb",
+    "title": "Test transaction sync reliability",
+    "status": "blocked",
+    "track": "qa",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "ac5fb18f-d7f7-41e7-97b6-644e45e73016",
+    "title": "Add budget alert engine",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "c430b519-b85f-4b22-9959-979379d78894",
+    "title": "Build budget setup wizard",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-finance-isha",
+    "depends_on": [
+      "71214029-2813-4339-b0b1-50ec215417bb",
+      "ac5fb18f-d7f7-41e7-97b6-644e45e73016"
+    ]
+  },
+  {
+    "id": "7eb18875-8db5-4832-a0c6-e4719f1caa58",
+    "title": "Build spending breakdown chart",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "fd203ddc-69f7-4d5e-996e-84952ee003bf",
+    "title": "Build bank account linking service",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-finance-isha",
+    "depends_on": [
+      "7eb18875-8db5-4832-a0c6-e4719f1caa58"
+    ]
+  },
+  {
+    "id": "162be565-0c1d-4d57-8b8a-d01af6f07f89",
+    "title": "Implement transaction categorization",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "88fb16a1-3d29-458a-b9b7-512b46eba5f2",
+    "title": "Design net-worth tracking screen",
+    "status": "in_progress",
+    "track": "design",
+    "assigned_to": "Member 1",
+    "project_id": "proj-finance-isha",
+    "depends_on": [
+      "162be565-0c1d-4d57-8b8a-d01af6f07f89",
+      "fd203ddc-69f7-4d5e-996e-84952ee003bf"
+    ]
+  },
+  {
+    "id": "d80d52e9-30cc-4a7a-b02a-fe5b515a12ea",
+    "title": "Test transaction sync reliability",
+    "status": "blocked",
+    "track": "qa",
+    "assigned_to": "Member 2",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "dc886989-1f07-4552-a2fb-82667b8171e5",
+    "title": "Add budget alert engine",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-finance-isha",
+    "depends_on": []
+  },
+  {
+    "id": "1095c206-0bc5-4469-87ea-a4e18dd84061",
+    "title": "Build budget setup wizard",
+    "status": "completed",
+    "track": "frontend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-finance-isha",
+    "depends_on": [
+      "88fb16a1-3d29-458a-b9b7-512b46eba5f2",
+      "d80d52e9-30cc-4a7a-b02a-fe5b515a12ea"
+    ]
+  },
+  {
+    "id": "55e43b55-c589-49d7-a042-56df57397cbc",
+    "title": "Build spending breakdown chart",
+    "status": "in_progress",
+    "track": "frontend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-finance-isha",
+    "depends_on": [
+      "88fb16a1-3d29-458a-b9b7-512b46eba5f2"
+    ]
+  },
+  {
+    "id": "4e691432-24c5-49a7-b9e4-2f6ec383602a",
+    "title": "Build event creation API",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-events-arnav",
+    "depends_on": []
+  },
+  {
+    "id": "9ce117f4-9529-4337-9fd4-d8c574623e1b",
+    "title": "Design event page templates",
+    "status": "completed",
+    "track": "design",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-events-arnav",
+    "depends_on": []
+  },
+  {
+    "id": "ad5adc24-5b4d-46e1-985c-c80823a164e9",
+    "title": "Implement ticketing and QR check-in",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-events-arnav",
+    "depends_on": [
+      "9ce117f4-9529-4337-9fd4-d8c574623e1b"
+    ]
+  },
+  {
+    "id": "3aadeade-282f-4c97-acc9-682a4a777a95",
+    "title": "Build event landing page builder",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-events-arnav",
+    "depends_on": []
+  },
+  {
+    "id": "bb497d87-0593-42c4-a6d6-d1f277af862c",
+    "title": "Build attendee check-in app screen",
+    "status": "in_progress",
+    "track": "frontend",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-events-arnav",
+    "depends_on": [
+      "ad5adc24-5b4d-46e1-985c-c80823a164e9"
+    ]
+  },
+  {
+    "id": "c632f365-9517-4cf5-8d42-edf952f37e00",
+    "title": "Test ticketing concurrency",
+    "status": "in_progress",
+    "track": "qa",
+    "assigned_to": "Member 1",
+    "project_id": "proj-events-arnav",
+    "depends_on": [
+      "3aadeade-282f-4c97-acc9-682a4a777a95",
+      "ad5adc24-5b4d-46e1-985c-c80823a164e9",
+      "4e691432-24c5-49a7-b9e4-2f6ec383602a"
+    ]
+  },
+  {
+    "id": "617bc0d7-fee7-4e38-8f05-fab11db2314c",
+    "title": "Add waitlist management",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-events-arnav",
+    "depends_on": [
+      "c632f365-9517-4cf5-8d42-edf952f37e00"
+    ]
+  },
+  {
+    "id": "a3442b94-6959-4736-8ce0-3429aa39d3a3",
+    "title": "Set up load testing for event day traffic",
+    "status": "todo",
+    "track": "devops",
+    "assigned_to": "Member 1",
+    "project_id": "proj-events-arnav",
+    "depends_on": [
+      "c632f365-9517-4cf5-8d42-edf952f37e00",
+      "3aadeade-282f-4c97-acc9-682a4a777a95",
+      "ad5adc24-5b4d-46e1-985c-c80823a164e9"
+    ]
+  },
+  {
+    "id": "57251166-8611-490a-a39b-62aef0897343",
+    "title": "Build event creation API",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-events-arnav",
+    "depends_on": [
+      "a3442b94-6959-4736-8ce0-3429aa39d3a3",
+      "3aadeade-282f-4c97-acc9-682a4a777a95"
+    ]
+  },
+  {
+    "id": "9ff6dfd7-4c85-4720-a7d9-1eaa222b81d1",
+    "title": "Design event page templates",
+    "status": "todo",
+    "track": "design",
+    "assigned_to": "Member 2",
+    "project_id": "proj-events-arnav",
+    "depends_on": []
+  },
+  {
+    "id": "fff8b7c0-04ec-43a6-b219-075d9f9248ce",
+    "title": "Implement ticketing and QR check-in",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-events-arnav",
+    "depends_on": []
+  },
+  {
+    "id": "d0b8a56b-f2c2-4eca-bea4-688fcd49eea0",
+    "title": "Build event landing page builder",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-events-arnav",
+    "depends_on": []
+  },
+  {
+    "id": "5e700675-1c40-4b54-af26-7b839b6a8cfd",
+    "title": "Build job search and filters page",
+    "status": "completed",
+    "track": "frontend",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": []
+  },
+  {
+    "id": "25060968-71d6-4970-a4d5-694fe6da2044",
+    "title": "Build employer applicant tracker",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": []
+  },
+  {
+    "id": "45ff4df3-c124-4f55-81b0-bb6456dfcfe6",
+    "title": "Implement resume parsing service",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "5e700675-1c40-4b54-af26-7b839b6a8cfd"
+    ]
+  },
+  {
+    "id": "ee480c56-155f-446d-8bcf-ab075463fd94",
+    "title": "Set up search indexing pipeline",
+    "status": "blocked",
+    "track": "devops",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "5e700675-1c40-4b54-af26-7b839b6a8cfd"
+    ]
+  },
+  {
+    "id": "8e179cad-86a6-422f-ab44-2c1759b43923",
+    "title": "Test resume parsing accuracy",
+    "status": "in_progress",
+    "track": "qa",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "5e700675-1c40-4b54-af26-7b839b6a8cfd"
+    ]
+  },
+  {
+    "id": "8a751b76-8951-4e3f-9c27-a253025224a4",
+    "title": "Build job posting API",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "SarvagyaP",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": []
+  },
+  {
+    "id": "eaebe262-4115-432e-a8c1-811564cc0b7e",
+    "title": "Design employer dashboard",
+    "status": "in_progress",
+    "track": "design",
+    "assigned_to": "Member 1",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "8e179cad-86a6-422f-ab44-2c1759b43923",
+      "45ff4df3-c124-4f55-81b0-bb6456dfcfe6",
+      "25060968-71d6-4970-a4d5-694fe6da2044"
+    ]
+  },
+  {
+    "id": "6ac57aae-d204-4a3f-a06f-6d41111b51ef",
+    "title": "Add job recommendation engine",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": []
+  },
+  {
+    "id": "f645852b-6216-4292-83ae-a32c6132bebd",
+    "title": "Set up encrypted secrets management",
+    "status": "blocked",
+    "track": "devops",
+    "assigned_to": "Member 1",
+    "project_id": "proj-finance-isha",
+    "depends_on": [
+      "806093cd-f7d6-4450-8d31-38016c6c9ff4"
+    ]
+  },
+  {
+    "id": "a32efdbb-7f36-4c61-85e8-98417d43a702",
+    "title": "Build kanban board for task tracking",
+    "status": "in_progress",
+    "track": "frontend",
+    "assigned_to": "Naman-GG",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "c9e18c18-4e2a-4c47-918c-f12fd776d1ca"
+    ]
+  },
+  {
+    "id": "56d93091-7d42-42c3-8f60-e1c09f0c119c",
+    "title": "Design achievement badge system",
+    "status": "completed",
+    "track": "design",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-fitness-prince",
+    "depends_on": [
+      "2e5b1ba2-c54f-4579-bbdb-04f833438081",
+      "bccea131-39b9-4051-b03a-0408a5632f31"
+    ]
+  },
+  {
+    "id": "f71bc506-d4e3-473b-bb58-a93d089f0033",
+    "title": "Design task card visual states",
+    "status": "upcoming",
+    "track": "design",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "1af892f7-ee7e-4ad3-aa3d-0289418fddfa",
+      "860be26c-0aec-4f2d-98f1-17116ab699fb"
+    ]
+  },
+  {
+    "id": "860be26c-0aec-4f2d-98f1-17116ab699fb",
+    "title": "Set up Neon Postgres connection pooling",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "mitaali_2005",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "2791afe2-73c4-4d8b-ae75-8e9e624d162a",
+    "title": "Build platform integration abstraction layer",
+    "status": "completed",
+    "track": "backend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "df8552e2-ae95-41e8-9b24-1386b2a7e3cc",
+      "0ef32241-473f-424e-b20b-cf2fd18c40d0"
+    ]
+  },
+  {
+    "id": "task_1785493628200_cl5q5",
+    "title": "Design UI/UX for Scientific Calculator",
+    "status": "in_progress",
+    "track": "Design",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T1"
+    ]
+  },
+  {
+    "id": "task_1785493628200_etn01",
+    "title": "Setup Backend (Node.js/Python) Environment",
+    "status": "in_progress",
+    "track": "Backend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T1"
+    ]
+  },
+  {
+    "id": "task_1785493628201_6mwuq",
+    "title": "Implement Basic Calculator UI Components",
+    "status": "in_progress",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T7",
+      "P3c9d37f8-T6"
+    ]
+  },
+  {
+    "id": "e6164e85-842d-4a22-b6dd-6f0a967de343",
+    "title": "Build job search and filters page",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "ee480c56-155f-446d-8bcf-ab075463fd94",
+      "45ff4df3-c124-4f55-81b0-bb6456dfcfe6"
+    ]
+  },
+  {
+    "id": "5da61554-4180-4c7e-bb6e-78cfc8ae333b",
+    "title": "Build employer applicant tracker",
+    "status": "todo",
+    "track": "frontend",
+    "assigned_to": "Member 1",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "8e179cad-86a6-422f-ab44-2c1759b43923"
+    ]
+  },
+  {
+    "id": "4e5e9cb6-d7e8-4bb5-9c7a-c6c4bd220029",
+    "title": "Implement resume parsing service",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "Member 2",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": []
+  },
+  {
+    "id": "6477ea2e-3286-4f88-a011-7c7eda2d4ca3",
+    "title": "Set up search indexing pipeline",
+    "status": "blocked",
+    "track": "devops",
+    "assigned_to": "Member 2",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "5da61554-4180-4c7e-bb6e-78cfc8ae333b",
+      "8e179cad-86a6-422f-ab44-2c1759b43923"
+    ]
+  },
+  {
+    "id": "af5a5824-54d5-4c77-9d50-9c4cebd8b2ea",
+    "title": "Test resume parsing accuracy",
+    "status": "in_progress",
+    "track": "qa",
+    "assigned_to": "Member 2",
+    "project_id": "proj-jobboard-sarvagya",
+    "depends_on": [
+      "5da61554-4180-4c7e-bb6e-78cfc8ae333b"
+    ]
+  },
+  {
+    "id": "733fd419-8e89-47a1-8636-ba37b784aacf",
+    "title": "Regression test status transition history (follow-up)",
+    "status": "in_progress",
+    "track": "qa",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "7564fc58-81ee-48e8-9865-875e6c33d629",
+    "title": "Set up CI pipeline for monorepo",
+    "status": "in_progress",
+    "track": "devops",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "c9e18c18-4e2a-4c47-918c-f12fd776d1ca",
+      "890d1052-06e9-4685-8400-158d968e316b"
+    ]
+  },
+  {
+    "id": "389b91fa-e76a-4e68-b438-0a83d2e76517",
+    "title": "Build project creation wizard",
+    "status": "blocked",
+    "track": "frontend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "979cbb38-92eb-4d93-83dd-c1ddbdc500e0",
+    "title": "Add task dependency resolver",
+    "status": "todo",
+    "track": "backend",
+    "assigned_to": "IshaMahadev",
+    "project_id": "proj-orchestra",
+    "depends_on": []
+  },
+  {
+    "id": "0938688b-70c0-4abe-954c-2b4194adf2f3",
+    "title": "Write E2E tests for task generation flow",
+    "status": "upcoming",
+    "track": "qa",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "860be26c-0aec-4f2d-98f1-17116ab699fb",
+      "f71bc506-d4e3-473b-bb58-a93d089f0033",
+      "c73a0b0e-0b59-4483-98df-768f92b19963"
+    ]
+  },
+  {
+    "id": "2e5b1ba2-c54f-4579-bbdb-04f833438081",
+    "title": "Add streak and achievement engine",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "PrinceNegi",
+    "project_id": "proj-fitness-prince",
+    "depends_on": []
+  },
+  {
+    "id": "96d8e24b-c439-4dd4-8231-10d22dceee97",
+    "title": "Set up Neon Postgres connection pooling (follow-up)",
+    "status": "blocked",
+    "track": "backend",
+    "assigned_to": "Arnav21",
+    "project_id": "proj-orchestra",
+    "depends_on": [
+      "89d6e0a3-fc37-4f19-876b-910a1185d10d"
+    ]
+  },
+  {
+    "id": "T_PROBE_909",
+    "title": "Probe task from AI service",
+    "status": "upcoming",
+    "track": "test",
+    "assigned_to": "Naman",
+    "project_id": null,
+    "depends_on": []
+  },
+  {
+    "id": "task_1785493628199_cjvn8",
+    "title": "Project Initialization & Repository Setup",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "meclaps",
+    "project_id": "P3dcb64a2",
+    "depends_on": []
+  },
+  {
+    "id": "task_1785493628200_4pfex",
+    "title": "Dockerize Backend Application",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "meclaps",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T4"
+    ]
+  },
+  {
+    "id": "task_1785493628201_ctyx0",
+    "title": "Dockerize Frontend Application",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "meclaps",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T10",
+      "P3c9d37f8-T14"
+    ]
+  },
+  {
+    "id": "task_1785493628201_eb5oi",
+    "title": "Implement Error Handling and Edge Cases",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T10",
+      "P3c9d37f8-T11"
+    ]
+  },
+  {
+    "id": "task_1785493628201_gmgy9",
+    "title": "Setup CI/CD Pipeline (GitHub Actions)",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "meclaps",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T5",
+      "P3c9d37f8-T16"
+    ]
+  },
+  {
+    "id": "task_1785493628201_n1fpg",
+    "title": "Setup Frontend (React) Environment",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T1"
+    ]
+  },
+  {
+    "id": "task_1785493628201_njfr9",
+    "title": "Implement Client-Side Basic Calculation Logic",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T8"
+    ]
+  },
+  {
+    "id": "task_1785493628201_roa6y",
+    "title": "Integrate Function Descriptions into UI",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T12",
+      "P3c9d37f8-T13"
+    ]
+  },
+  {
+    "id": "task_1785493628201_so71j",
+    "title": "Implement Scientific Calculator UI Components",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T8"
+    ]
+  },
+  {
+    "id": "task_1785493628201_tbnn8",
+    "title": "Develop Function Description Panel",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T9"
+    ]
+  },
+  {
+    "id": "task_1785493628201_v5ghk",
+    "title": "Write Function Descriptions and Usage Guides",
+    "status": "upcoming",
+    "track": "Content",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T4",
+      "P3c9d37f8-T9"
+    ]
+  },
+  {
+    "id": "task_1785493628202_13756",
+    "title": "Performance Optimization",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T10",
+      "P3c9d37f8-T11"
+    ]
+  },
+  {
+    "id": "task_1785493628200_k70ko",
+    "title": "Implement Core Scientific Calculation Logic (Backend)",
+    "status": "in_progress",
+    "track": "Backend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T3",
+      "P3c9d37f8-T2"
+    ]
+  },
+  {
+    "id": "task_1785493628200_r078i",
+    "title": "Define API Endpoints & Data Models",
+    "status": "in_progress",
+    "track": "Backend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T1"
+    ]
+  },
+  {
+    "id": "task_1785493628201_7yax3",
+    "title": "Integrate Frontend with Backend API",
+    "status": "in_progress",
+    "track": "Frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T9",
+      "P3c9d37f8-T4"
+    ]
+  },
+  {
+    "id": "task_1785493628202_7nqey",
+    "title": "End-to-End Testing",
+    "status": "upcoming",
+    "track": "QA",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T20"
+    ]
+  },
+  {
+    "id": "task_1785493628202_ax1dh",
+    "title": "Unit Testing (Frontend)",
+    "status": "upcoming",
+    "track": "QA",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T10",
+      "P3c9d37f8-T11",
+      "P3c9d37f8-T14",
+      "P3c9d37f8-T15"
+    ]
+  },
+  {
+    "id": "task_1785493628202_dlkjx",
+    "title": "Unit Testing (Backend)",
+    "status": "upcoming",
+    "track": "QA",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T4",
+      "P3c9d37f8-T15"
+    ]
+  },
+  {
+    "id": "task_1785493628202_e65yh",
+    "title": "Final Deployment to Cloud Platform",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "meclaps",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T17",
+      "P3c9d37f8-T21"
+    ]
+  },
+  {
+    "id": "task_1785493628202_sxiwa",
+    "title": "Post-Deployment Monitoring & Maintenance Setup",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "meclaps",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T23"
+    ]
+  },
+  {
+    "id": "task_1785493628202_szxcw",
+    "title": "Integration Testing (Frontend-Backend)",
+    "status": "upcoming",
+    "track": "QA",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P3dcb64a2",
+    "depends_on": [
+      "P3c9d37f8-T18",
+      "P3c9d37f8-T19"
+    ]
+  },
+  {
+    "id": "task_1785494022730_4f823",
+    "title": "Project Setup & Requirements Gathering",
+    "status": "upcoming",
+    "track": "project_management",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": []
+  },
+  {
+    "id": "task_1785494022731_jrc3n",
+    "title": "UI/UX Design for Child-Friendly Interface",
+    "status": "upcoming",
+    "track": "design",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T1"
+    ]
+  },
+  {
+    "id": "task_1785494022732_ilkp9",
+    "title": "Setup Python Backend Environment",
+    "status": "upcoming",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T1"
+    ]
+  },
+  {
+    "id": "task_1785494022732_mqhbl",
+    "title": "Database Schema Design",
+    "status": "upcoming",
+    "track": "database",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T1"
+    ]
+  },
+  {
+    "id": "task_1785494022732_w8f1o",
+    "title": "Develop Math Problem Generation Logic",
+    "status": "upcoming",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T4",
+      "Pb8235cce-T3"
+    ]
+  },
+  {
+    "id": "task_1785494022732_ym5sk",
+    "title": "Implement User Authentication",
+    "status": "upcoming",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T4",
+      "Pb8235cce-T3"
+    ]
+  },
+  {
+    "id": "task_1785494022733_43xsf",
+    "title": "Implement Progress Tracking & Reporting",
+    "status": "upcoming",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T4",
+      "Pb8235cce-T3"
+    ]
+  },
+  {
+    "id": "task_1785494022734_e4n6k",
+    "title": "Setup Frontend Development Environment",
+    "status": "upcoming",
+    "track": "frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T1"
+    ]
+  },
+  {
+    "id": "task_1785494022734_slqfd",
+    "title": "Develop Core Layout & Navigation",
+    "status": "upcoming",
+    "track": "frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T9",
+      "Pb8235cce-T2"
+    ]
+  },
+  {
+    "id": "task_1785494022734_v5s3w",
+    "title": "Create API Endpoints for Frontend",
+    "status": "upcoming",
+    "track": "backend",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T5",
+      "Pb8235cce-T6",
+      "Pb8235cce-T7"
+    ]
+  },
+  {
+    "id": "task_1785494022735_083ld",
+    "title": "Implement Frontend-Backend Data Flow",
+    "status": "upcoming",
+    "track": "integration",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T14"
+    ]
+  },
+  {
+    "id": "task_1785494022735_7hien",
+    "title": "Unit Testing (Backend)",
+    "status": "upcoming",
+    "track": "qa",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T8"
+    ]
+  },
+  {
+    "id": "task_1785494022735_8189e",
+    "title": "Implement Math Problem Display UI",
+    "status": "upcoming",
+    "track": "frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T9",
+      "Pb8235cce-T2"
+    ]
+  },
+  {
+    "id": "task_1785494022735_betj6",
+    "title": "Develop Progress Dashboard UI",
+    "status": "upcoming",
+    "track": "frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T9",
+      "Pb8235cce-T2"
+    ]
+  },
+  {
+    "id": "task_1785494022735_e4i8e",
+    "title": "Implement User Input & Feedback UI",
+    "status": "upcoming",
+    "track": "frontend",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T9",
+      "Pb8235cce-T2"
+    ]
+  },
+  {
+    "id": "task_1785494022735_h74dn",
+    "title": "Integrate Frontend with Backend APIs",
+    "status": "upcoming",
+    "track": "integration",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T8",
+      "Pb8235cce-T11",
+      "Pb8235cce-T12",
+      "Pb8235cce-T13"
+    ]
+  },
+  {
+    "id": "task_1785494022735_ykk1w",
+    "title": "Unit Testing (Frontend)",
+    "status": "upcoming",
+    "track": "qa",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T13"
+    ]
+  },
+  {
+    "id": "task_1785494022736_0wr1e",
+    "title": "Deploy Application",
+    "status": "upcoming",
+    "track": "devops",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T20",
+      "Pb8235cce-T19"
+    ]
+  },
+  {
+    "id": "task_1785494022736_81apz",
+    "title": "Integration Testing",
+    "status": "upcoming",
+    "track": "qa",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T15",
+      "Pb8235cce-T16",
+      "Pb8235cce-T17"
+    ]
+  },
+  {
+    "id": "task_1785494022736_f559t",
+    "title": "Setup Deployment Environment",
+    "status": "upcoming",
+    "track": "devops",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T18"
+    ]
+  },
+  {
+    "id": "task_1785494022736_rvzsu",
+    "title": "User Acceptance Testing (UAT) with Target Audience",
+    "status": "upcoming",
+    "track": "qa",
+    "assigned_to": "mitaali_singh",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T18"
+    ]
+  },
+  {
+    "id": "task_1785494022736_sz8np",
+    "title": "Post-Deployment Monitoring & Bug Fixing",
+    "status": "upcoming",
+    "track": "devops",
+    "assigned_to": "Naman-GG",
+    "project_id": "P8da941cc",
+    "depends_on": [
+      "Pb8235cce-T21"
+    ]
+  },
+  {
+    "id": "task_1785496214015_3jx44",
+    "title": "Tech Stack Selection & Research",
+    "status": "upcoming",
+    "track": "Project Management",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T1"
+    ]
+  },
+  {
+    "id": "task_1785496214015_w9wpi",
+    "title": "Project Scope & Requirements Definition",
+    "status": "upcoming",
+    "track": "Project Management",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": []
+  },
+  {
+    "id": "task_1785496214015_x3m5v",
+    "title": "Version Control & Project Setup",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T2"
+    ]
+  },
+  {
+    "id": "task_1785496214015_x4wzv",
+    "title": "Agent AI Architecture Design",
+    "status": "upcoming",
+    "track": "AI",
+    "assigned_to": "mitaali.23bai10781",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T2"
+    ]
+  },
+  {
+    "id": "task_1785496214016_2ucnz",
+    "title": "Frontend UI/UX Design & Wireframing",
+    "status": "upcoming",
+    "track": "Design",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T1"
+    ]
+  },
+  {
+    "id": "task_1785496214016_88ukb",
+    "title": "Backend-Frontend Integration",
+    "status": "upcoming",
+    "track": "Integration",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T10",
+      "P0ee5aab0-T13"
+    ]
+  },
+  {
+    "id": "task_1785496214016_e84zm",
+    "title": "Frontend Framework Setup & Component Library",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T11"
+    ]
+  },
+  {
+    "id": "task_1785496214016_fblij",
+    "title": "Agent Interaction Interface Development",
+    "status": "upcoming",
+    "track": "Frontend",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T12"
+    ]
+  },
+  {
+    "id": "task_1785496214016_i5aa1",
+    "title": "Core Agent Logic Implementation",
+    "status": "upcoming",
+    "track": "AI",
+    "assigned_to": "mitaali.23bai10781",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T5"
+    ]
+  },
+  {
+    "id": "task_1785496214016_jpay0",
+    "title": "Agent Integration API Development",
+    "status": "upcoming",
+    "track": "Backend",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T7",
+      "P0ee5aab0-T9"
+    ]
+  },
+  {
+    "id": "task_1785496214016_lwehs",
+    "title": "User Acceptance Testing (UAT)",
+    "status": "upcoming",
+    "track": "QA",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T15"
+    ]
+  },
+  {
+    "id": "task_1785496214016_mdh44",
+    "title": "Backend API Design & Specification",
+    "status": "upcoming",
+    "track": "Backend",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T4"
+    ]
+  },
+  {
+    "id": "task_1785496214016_mzmoe",
+    "title": "System Integration & End-to-End Testing",
+    "status": "upcoming",
+    "track": "QA",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T14"
+    ]
+  },
+  {
+    "id": "task_1785496214016_nmvuz",
+    "title": "Agent Environment & Tooling Setup",
+    "status": "upcoming",
+    "track": "AI",
+    "assigned_to": "mitaali.23bai10781",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T4"
+    ]
+  },
+  {
+    "id": "task_1785496214016_q87v5",
+    "title": "Backend Framework Setup & Database Integration",
+    "status": "upcoming",
+    "track": "Backend",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T8"
+    ]
+  },
+  {
+    "id": "task_1785496214016_qs8lm",
+    "title": "Agent Training & Initial Testing",
+    "status": "upcoming",
+    "track": "AI",
+    "assigned_to": "mitaali.23bai10781",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T6"
+    ]
+  },
+  {
+    "id": "task_1785496214017_0l586",
+    "title": "Final Presentation Preparation",
+    "status": "upcoming",
+    "track": "Project Management",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T19"
+    ]
+  },
+  {
+    "id": "task_1785496214017_8x62v",
+    "title": "Project Deployment & Hosting",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T16",
+      "P0ee5aab0-T17"
+    ]
+  },
+  {
+    "id": "task_1785496214017_o5ru5",
+    "title": "Project Documentation & Code Comments",
+    "status": "upcoming",
+    "track": "Documentation",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T18"
+    ]
+  },
+  {
+    "id": "task_1785496214017_rws1o",
+    "title": "Deployment Strategy & Infrastructure Setup",
+    "status": "upcoming",
+    "track": "DevOps",
+    "assigned_to": "gravikatas",
+    "project_id": "Pe8fabb0a",
+    "depends_on": [
+      "P0ee5aab0-T15"
+    ]
+  }
+]

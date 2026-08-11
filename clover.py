@@ -116,10 +116,18 @@ def fetch_user_project_ids(user_id: str) -> list[str]:
         return []
 
 
-# Finds the top tasks that best match the user's question using semantic search.
-def search_top_tasks(question: str, api_key: str, project_id: str | None = None, allowed_project_ids: list[str] | None = None) -> list[dict]:
-    """Find the most relevant tasks using the shared, cached ChromaDB index."""
-    tasks = get_all_tasks()
+
+# Finds the 3 tasks that best match the user's question using semantic search.
+def search_top_tasks(question: str, api_key: str, project_id: str | None = None, allowed_project_ids: list[str] | None = None, tasks: list[dict] | None = None) -> list[dict]:
+    """Find the 3 most relevant tasks using the shared, cached ChromaDB index.
+
+    Pass `tasks` to reuse a task list already fetched this request; otherwise it
+    reads the graph itself. Sharing one fetch avoids the redundant full-graph
+    Neo4j round-trips that used to happen 2-4 times per Clover call.
+    """
+    if tasks is None:
+        tasks = get_all_tasks()
+
     if not tasks:
         return []
 
@@ -271,6 +279,21 @@ def enrich_with_graph(task_ids: list[str], graph: dict) -> list[dict]:
     return enriched
 
 
+def _compact_events(events: list[dict], limit: int = 15) -> list[dict]:
+    """Trim live events before they go into the prompt.
+
+    fetch_live_events() returns the whole backlog (dozens of events, each carrying
+    a bulky raw_metadata webhook blob). Dumping all of it raw wastes thousands of
+    tokens and buries the signal. Keep only the most recent `limit` events and only
+    the fields that help Clover reason about recent activity.
+    """
+    if not events:
+        return []
+    keep = ("platform", "event_type", "actor", "timestamp", "repo", "channel", "action_summary")
+    ordered = sorted(events, key=lambda e: str(e.get("timestamp", "")), reverse=True)
+    return [{k: e[k] for k in keep if e.get(k) is not None} for e in ordered[:limit]]
+
+
 # Builds the ordered prompt sections from all pre-fetched context sources.
 def _build_prompt_parts(
     question: str,
@@ -280,10 +303,16 @@ def _build_prompt_parts(
     full_graph,
     project_id: str | None = None,
     project_names: dict[str, str] | None = None,
+    all_tasks: list[dict] | None = None,
 ) -> list[str]:
-    """Shared prompt builder used by both ask_clover and stream_answer."""
+    """Shared prompt builder used by both ask_clover and stream_answer.
+
+    `all_tasks` may be a task list already fetched this request; when omitted the
+    project-scoping step below reads the graph itself.
+    """
     if project_id and full_graph:
-        project_task_ids = {t.get("id") for t in get_all_tasks() if t.get("project_id") == project_id}
+        scope_source = all_tasks if all_tasks is not None else get_all_tasks()
+        project_task_ids = {t.get("id") for t in scope_source if t.get("project_id") == project_id}
         full_graph["nodes"] = [n for n in full_graph.get("nodes", []) if n.get("id") in project_task_ids or n.get("type") == "developer"]
         full_graph["edges"] = [e for e in full_graph.get("edges", []) if e.get("source") in project_task_ids or e.get("target") in project_task_ids]
 
@@ -328,8 +357,9 @@ def _build_prompt_parts(
         )
         prompt_parts.append(history_text)
 
-    if live_events:
-        commit_json = json.dumps(live_events, indent=2, ensure_ascii=False)
+    compact_events = _compact_events(live_events)
+    if compact_events:
+        commit_json = json.dumps(compact_events, indent=2, ensure_ascii=False)
         prompt_parts.append(f"Recent activity context:\n{commit_json}")
 
     graph_context = get_relevant_graph_context(question, full_graph)
@@ -424,9 +454,14 @@ def stream_answer(
     if not want_graph and not want_events:
         want_graph = want_events = True
 
+    empty_direct_lookup = False
     with ThreadPoolExecutor(max_workers=6) as pool:
         project_ids_future = pool.submit(fetch_user_project_ids, user_id) if user_id and not project_id else None
         gh_username_future = pool.submit(fetch_github_username, user_id) if user_id and not github_username else None
+        # Fetch the full task list ONCE per request, in parallel with the graph/
+        # events/projects fetches. Everything below reuses it instead of each
+        # re-querying Neo4j (search, graph scoping, capacity planning, prompt build).
+        tasks_data_future = pool.submit(get_all_tasks)
         graph_future = pool.submit(fetch_graph) if want_graph else None
         events_future = pool.submit(_safe_fetch_live_events) if want_events else None
         projects_future = pool.submit(fetch_projects)
@@ -434,8 +469,28 @@ def stream_answer(
         allowed_project_ids = project_ids_future.result() if project_ids_future else None
         if gh_username_future:
             github_username = gh_username_future.result() or github_username
-        tasks_future = pool.submit(search_top_tasks, question, api_key, project_id, allowed_project_ids)
-        relevant_tasks = tasks_future.result()
+        all_tasks = tasks_data_future.result()
+
+        # Status/assignee questions ("what's blocked?", "what is Isha working on?")
+        # get a direct filter over the real task data — the full matching set, not
+        # the text-nearest tasks a semantic search would return. Update COMMANDS,
+        # though, must keep semantic search: the fuzzy-match update path below needs
+        # the per-task `distance` scores, which the direct filter doesn't produce.
+        # So reads use the direct filter; update intents fall through to the index.
+        direct_tasks = (
+            None if _has_update_intent(question)
+            else retrieve_by_status_or_assignee(
+                question, all_tasks, project_id, allowed_project_ids
+            )
+        )
+        if direct_tasks is None:
+            relevant_tasks = search_top_tasks(
+                question, api_key, project_id, allowed_project_ids, tasks=all_tasks
+            )
+        else:
+            relevant_tasks = direct_tasks
+            empty_direct_lookup = len(direct_tasks) == 0
+
         graph = graph_future.result() if graph_future else None
         live_events = events_future.result() if events_future else None
         projects = projects_future.result()
@@ -486,8 +541,7 @@ def stream_answer(
 
     # Scope graph to the user's projects so other users' tasks don't leak into context.
     if graph and allowed_project_ids and not project_id:
-        all_tasks_for_scope = get_all_tasks()
-        allowed_task_ids = {t["id"] for t in all_tasks_for_scope if t.get("project_id") in allowed_project_ids}
+        allowed_task_ids = {t["id"] for t in all_tasks if t.get("project_id") in allowed_project_ids}
         graph["nodes"] = [n for n in graph.get("nodes", []) if n.get("id") in allowed_task_ids or n.get("type") == "developer"]
         graph["edges"] = [e for e in graph.get("edges", []) if e.get("source") in allowed_task_ids or e.get("target") in allowed_task_ids]
 
@@ -503,8 +557,18 @@ def stream_answer(
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
         question, relevant_tasks, conversation_history, live_events, graph,
-        project_id, project_names,
+        project_id, project_names, all_tasks=all_tasks,
     )
+
+    # A direct status/assignee lookup that matched nothing is a real "there are
+    # none" answer — tell Gemini so it doesn't invent tasks to fill the silence.
+    if empty_direct_lookup:
+        prompt_parts.insert(
+            0,
+            "System note: a direct lookup of the task graph found NO tasks matching "
+            "that status or person. Tell the user plainly that there are none — do "
+            "not invent or guess tasks.",
+        )
 
     if nav_action:
         action_type = nav_action.get("type")
@@ -530,7 +594,6 @@ def stream_answer(
                 "Simply confirm in one short casual sentence that you're opening it.")
 
     if _needs_capacity_planning(question):
-        all_tasks = get_all_tasks()
         if project_id:
             scoped_tasks = [t for t in all_tasks if t.get("project_id") == project_id]
         elif allowed_project_ids:
@@ -588,7 +651,7 @@ def stream_answer(
     if not full_answer.strip():
         if nav_action:
             full_answer = "Taking you there now."
-        elif any(kw in question.lower() for kw in _NAV_KEYWORDS):
+        elif any(_phrase_present(kw, question.lower()) for kw in _NAV_KEYWORDS):
             full_answer = (
                 "I couldn't reach the project list just now — mind trying that again in a moment?"
             )
@@ -635,6 +698,101 @@ def _safe_fetch_live_events():
 _TASK_ID_RE = re.compile(r'\b(?:[A-Z0-9]+-)?T\d+\b', re.IGNORECASE)
 _TASK_HIGH_CONFIDENCE = 0.35  # distance below this → update directly
 _TASK_LOW_CONFIDENCE = 0.65   # distance above this → no match, apologise
+
+
+def _scope_tasks(tasks: list[dict], project_id: str | None = None,
+                 allowed_project_ids: list[str] | None = None) -> list[dict]:
+    """Narrow a task list to a single project or a set of the user's projects."""
+    if project_id:
+        return [t for t in tasks if t.get("project_id") == project_id]
+    if allowed_project_ids:
+        allowed = set(allowed_project_ids)
+        return [t for t in tasks if t.get("project_id") in allowed]
+    return list(tasks)
+
+
+# Status-question patterns → the canonical status they map to. Semantic search
+# can't answer these reliably (it returns the 3 text-nearest tasks, not the full
+# set in a given state), so we filter the graph data directly instead.
+_STATUS_INTENT: list[tuple[str, list[str]]] = [
+    ("blocked", [r"\bblocked\b", r"\bstuck\b", r"\bblocking\b", r"can'?t\s+(?:start|proceed|move)"]),
+    ("in_progress", [r"\bin[\s-]?progress\b", r"being\s+worked\s+on",
+                     r"currently\s+working", r"\bunderway\b", r"\bongoing\b"]),
+    ("completed", [r"\bcompleted\b", r"\bfinished\b", r"what'?s\s+done",
+                   r"\bdone\s+tasks?\b", r"tasks?\s+(?:are\s+)?done",
+                   r"already\s+(?:done|completed|finished)"]),
+    ("upcoming", [r"\bupcoming\b", r"not\s+started", r"\btodo\b", r"to[\s-]?do",
+                  r"haven'?t\s+started", r"yet\s+to\s+start", r"\bbacklog\b",
+                  r"what'?s\s+left", r"remaining\s+tasks?"]),
+]
+
+_ASSIGNEE_TRIGGER = re.compile(
+    r"working\s+on|assigned\s+to|responsible\s+for|handling|"
+    r"'s\s+tasks?|tasks?\s+(?:for|of)\b|\bowns?\b|who\s+has|what\s+is\s+\w+\s+doing",
+    re.IGNORECASE,
+)
+
+
+def _status_intent(question: str) -> str | None:
+    """Return the canonical status a question is asking about, or None."""
+    q = question.lower()
+    for status, patterns in _STATUS_INTENT:
+        if any(re.search(p, q) for p in patterns):
+            return status
+    return None
+
+
+def _assignee_intent(question: str, tasks: list[dict]) -> str | None:
+    """Return the assignee a question is about, matched against real assignees.
+
+    Only fires when the phrasing is relational ("working on", "assigned to", ...)
+    AND a name that actually appears in the task data is named in the question, so
+    it can't misfire on arbitrary words.
+    """
+    if not _ASSIGNEE_TRIGGER.search(question):
+        return None
+    q = question.lower()
+    names = {str(t.get("assigned_to")) for t in tasks if t.get("assigned_to")}
+    for name in sorted(names, key=len, reverse=True):
+        nl = name.strip().lower()
+        if not nl or nl == "none":
+            continue
+        if re.search(rf"\b{re.escape(nl)}\b", q):
+            return name
+        first = nl.split()[0] if nl.split() else nl
+        if len(first) >= 3 and re.search(rf"\b{re.escape(first)}\b", q):
+            return name
+    return None
+
+
+def retrieve_by_status_or_assignee(
+    question: str,
+    tasks: list[dict],
+    project_id: str | None = None,
+    allowed_project_ids: list[str] | None = None,
+) -> list[dict] | None:
+    """Direct graph-data retrieval for status/assignee questions.
+
+    Returns the FULL set of tasks matching the asked-about status and/or assignee
+    (scoped to the user's projects), or None when the question isn't a
+    status/assignee query — in which case the caller falls back to semantic search.
+    An empty list means "it is such a query, but nothing matches" (e.g. nothing is
+    blocked), which is a real answer, not a fall-through.
+    """
+    scoped = _scope_tasks(tasks, project_id, allowed_project_ids)
+    status = _status_intent(question)
+    assignee = _assignee_intent(question, scoped)
+    if status is None and assignee is None:
+        return None
+    matches = scoped
+    if status is not None:
+        matches = [t for t in matches if str(t.get("status", "")).strip().lower() == status]
+    if assignee is not None:
+        al = str(assignee).strip().lower()
+        matches = [t for t in matches if str(t.get("assigned_to", "")).strip().lower() == al]
+    return sorted(matches, key=lambda t: str(t.get("id", "")))[:25]
+
+
 _COMPLETED_RE = re.compile(r'\b(?:done|finish(?:ed)?|complet(?:ed)?|wrap(?:ped)?\s*up)\b', re.IGNORECASE)
 _IN_PROGRESS_RE = re.compile(r'\b(?:start(?:ing|ed)?|working\s+on|began|beginning|picking\s+up)\b', re.IGNORECASE)
 _BLOCKED_RE = re.compile(r'\b(?:block(?:ed)?|stuck|can\'t\s+(?:start|do|work))\b', re.IGNORECASE)
@@ -795,7 +953,7 @@ _SWITCH_KEYWORDS = {"switch to", "switch project", "change project", "change to"
 def _detect_repo_redirect(question: str, project_id: str | None, projects: list[dict]) -> dict | None:
     """Return an open_url action if the question asks to open the GitHub repo."""
     q = question.lower()
-    if not any(kw in q for kw in _REPO_KEYWORDS):
+    if not any(_phrase_present(kw, q) for kw in _REPO_KEYWORDS):
         return None
 
     # Fuzzy-match project name from question first
@@ -833,7 +991,8 @@ def _detect_project_switch(question: str, project_names: dict[str, str]) -> dict
     destination is included so the frontend can navigate directly to that page.
     """
     q = question.lower()
-    has_intent = any(kw in q for kw in _SWITCH_KEYWORDS) or any(kw in q for kw in _NAV_KEYWORDS)
+    has_intent = (any(_phrase_present(kw, q) for kw in _SWITCH_KEYWORDS)
+                  or any(_phrase_present(kw, q) for kw in _NAV_KEYWORDS))
     if not has_intent:
         return None
 
@@ -842,11 +1001,11 @@ def _detect_project_switch(question: str, project_names: dict[str, str]) -> dict
             continue
         name_words = [w for w in pname.lower().split() if len(w) > 3]
         full_name = pname.lower()
-        if (full_name in q) or (name_words and any(w in q for w in name_words)):
+        if _phrase_present(full_name, q) or (name_words and any(_phrase_present(w, q) for w in name_words)):
             action: dict = {"type": "switch_project", "project_id": pid}
             # Include destination if a project-page keyword is also present
             for keyword, dest in _PROJECT_DEST_MAP.items():
-                if keyword in q:
+                if _nav_match(keyword, q):
                     action["destination"] = dest
                     break
             return action
@@ -854,7 +1013,7 @@ def _detect_project_switch(question: str, project_names: dict[str, str]) -> dict
     return None
 
 
-_NAV_KEYWORDS = {"take me to", "open the", "open ", "go to", "show me the", "navigate to", "show me my", "i want to see"}
+_NAV_KEYWORDS = {"take me to", "open", "go to", "show me the", "navigate to", "show me my", "i want to see"}
 
 # Global pages — no project_id needed
 _GLOBAL_DEST_MAP = {
@@ -899,13 +1058,26 @@ _PROJECT_DEST_MAP = {
 }
 
 
+def _phrase_present(phrase: str, q: str) -> bool:
+    """True if `phrase` appears in q as whole words (word-boundary match).
+
+    Avoids the substring false positives the old `in` checks produced — "open"
+    matching "reopened", "team" matching "esteem", "flow" matching "workflow",
+    "board" matching "dashboard".
+    """
+    phrase = phrase.strip()
+    if not phrase:
+        return False
+    return re.search(rf"\b{re.escape(phrase)}\b", q) is not None
+
+
 def _nav_match(keyword: str, q: str) -> bool:
-    """Return True if keyword or its singular/plural form appears in q."""
-    if keyword in q:
+    """Return True if keyword or its singular/plural form appears in q as whole words."""
+    if _phrase_present(keyword, q):
         return True
-    if keyword.endswith("s") and keyword[:-1] in q:
+    if keyword.endswith("s") and _phrase_present(keyword[:-1], q):
         return True
-    if not keyword.endswith("s") and keyword + "s" in q:
+    if not keyword.endswith("s") and _phrase_present(keyword + "s", q):
         return True
     return False
 
@@ -917,7 +1089,7 @@ def _detect_navigation(
 ) -> dict | None:
     """Return an action dict if the question is a navigation request, else None."""
     q = question.lower()
-    if not any(kw in q for kw in _NAV_KEYWORDS):
+    if not any(_phrase_present(kw, q) for kw in _NAV_KEYWORDS):
         return None
 
     # Global pages first — no project_id needed
