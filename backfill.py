@@ -21,8 +21,7 @@ Usage:
     python backfill.py --verify      # after applying, re-read the graph to confirm
 
 Notes:
-  * The PATCH endpoint only accepts: in_progress | completed | blocked. 'todo' is
-    the graph default and is rejected by the endpoint, so todo tasks are skipped.
+  * The PATCH endpoint accepts all four canonical statuses: upcoming | in_progress | completed | blocked.
   * The script first checks that backend task IDs actually exist in the graph and
     refuses to mass-PATCH non-existent IDs unless you pass --force — see the
     ID-mismatch warning. (Backend IDs look like 'task_008'; the graph may use
@@ -43,8 +42,7 @@ TIMEOUT = 90  # Render free tier cold start can take 30-50s
 RETRIES = 3   # ride out cold-start 5xx / timeouts on free tier
 
 # Statuses the AI repo's PATCH /tasks/{id}/status accepts (see main.update_task_status).
-# 'todo' is the graph default and is rejected by the endpoint, so we never send it.
-PATCHABLE = {"in_progress", "completed", "blocked"}
+PATCHABLE = {"upcoming", "in_progress", "completed", "blocked"}
 
 
 def fetch_tasks(base_url: str) -> list[dict]:
