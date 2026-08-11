@@ -414,18 +414,10 @@ def stream_answer(
     {"error": "message", "status": <code>} so the frontend can display them
     even though HTTP headers are already sent by the time we fail.
     """
-    # Check for task status update intent before hitting Gemini
+    # Task update detection runs after the parallel fetch so semantic matching
+    # can use the already-retrieved relevant_tasks (no extra API calls needed).
     task_update = None
-    action = _detect_task_action(question)
-    if action:
-        task_id, new_status = action
-        result = patch_task_status(task_id, new_status)
-        task_update = {
-            "task_id": task_id,
-            "new_status": new_status,
-            "title": result.get("title") if result else None,
-            "success": result is not None,
-        }
+    task_update_prompt = None
 
     want_graph = _needs_graph(question)
     want_events = _needs_events(question)
@@ -448,6 +440,49 @@ def stream_answer(
         live_events = events_future.result() if events_future else None
         projects = projects_future.result()
         project_names = {p["id"]: p.get("name", "") for p in projects if p.get("id")}
+
+    # Task update detection: regex ID match first (fast path), then semantic matching.
+    action = _detect_task_action(question)
+    if action:
+        task_id, new_status = action
+        result = patch_task_status(task_id, new_status)
+        task_update = {
+            "task_id": task_id,
+            "new_status": new_status,
+            "title": result.get("title") if result else None,
+            "success": result is not None,
+        }
+    elif _has_update_intent(question) and relevant_tasks:
+        new_status = _detect_status_from_question(question)
+        if new_status:
+            top = relevant_tasks[0]
+            distance = float(top.get("distance") or 1.0)
+            if distance < _TASK_HIGH_CONFIDENCE:
+                task_id = top.get("id")
+                result = patch_task_status(task_id, new_status)
+                task_update = {
+                    "task_id": task_id,
+                    "new_status": new_status,
+                    "title": top.get("title"),
+                    "success": result is not None,
+                }
+            elif distance < _TASK_LOW_CONFIDENCE:
+                candidates = "\n".join(
+                    f"- {t.get('title')} (ID: {t.get('id')})"
+                    for t in relevant_tasks[:3]
+                    if t.get("title")
+                )
+                task_update_prompt = (
+                    f"System: The user wants to mark a task as {new_status} but it's unclear which one. "
+                    f"The closest matches are:\n{candidates}\n"
+                    "Ask the user which task they meant in a friendly way, showing the task titles as options. "
+                    "Do not update anything yet."
+                )
+            else:
+                task_update_prompt = (
+                    "System: I couldn't find a task matching the user's description. "
+                    "Apologise briefly and ask them to describe the task differently or paste the task ID."
+                )
 
     # Scope graph to the user's projects so other users' tasks don't leak into context.
     if graph and allowed_project_ids and not project_id:
@@ -515,7 +550,9 @@ def stream_answer(
             "- Be honest and specific — name exactly which tasks to focus on and why, don't just list everything.",
         )
 
-    if task_update:
+    if task_update_prompt:
+        prompt_parts.insert(0, task_update_prompt)
+    elif task_update:
         if task_update["success"]:
             prompt_parts.insert(
                 0,
@@ -595,7 +632,9 @@ def _safe_fetch_live_events():
         return None
 
 
-_TASK_ID_RE = re.compile(r'\bT\d+\b', re.IGNORECASE)
+_TASK_ID_RE = re.compile(r'\b(?:[A-Z0-9]+-)?T\d+\b', re.IGNORECASE)
+_TASK_HIGH_CONFIDENCE = 0.35  # distance below this → update directly
+_TASK_LOW_CONFIDENCE = 0.65   # distance above this → no match, apologise
 _COMPLETED_RE = re.compile(r'\b(?:done|finish(?:ed)?|complet(?:ed)?|wrap(?:ped)?\s*up)\b', re.IGNORECASE)
 _IN_PROGRESS_RE = re.compile(r'\b(?:start(?:ing|ed)?|working\s+on|began|beginning|picking\s+up)\b', re.IGNORECASE)
 _BLOCKED_RE = re.compile(r'\b(?:block(?:ed)?|stuck|can\'t\s+(?:start|do|work))\b', re.IGNORECASE)
@@ -617,7 +656,7 @@ def _detect_task_action(question: str) -> tuple[str, str] | None:
     task_id = task_ids[0].upper()
 
     # Explicit "mark T4 as X" takes priority
-    mark_match = re.search(r'\bmark\s+T\d+\s+as\s+([\w\s]+)', question, re.IGNORECASE)
+    mark_match = re.search(r'\bmark\s+(?:[A-Z0-9]+-)?T\d+\s+as\s+([\w\s]+)', question, re.IGNORECASE)
     if mark_match:
         label = mark_match.group(1).strip().lower()
         if any(w in label for w in ("complet", "done", "finish")):
@@ -643,6 +682,35 @@ def _detect_task_action(question: str) -> tuple[str, str] | None:
     if _BLOCKED_RE.search(question):
         return task_id, "blocked"
     return None
+
+
+def _detect_status_from_question(question: str) -> str | None:
+    """Return the target status from a statement/command, or None if not detectable."""
+    mark_match = re.search(r'\bmark\s+.+?\s+as\s+([\w\s]+)', question, re.IGNORECASE)
+    if mark_match:
+        label = mark_match.group(1).strip().lower()
+        if any(w in label for w in ("complet", "done", "finish")):
+            return "completed"
+        if any(w in label for w in ("progress", "start", "active")):
+            return "in_progress"
+        if any(w in label for w in ("block", "stuck")):
+            return "blocked"
+        if any(w in label for w in ("upcoming", "todo")):
+            return "upcoming"
+    if _COMPLETED_RE.search(question):
+        return "completed"
+    if _IN_PROGRESS_RE.search(question):
+        return "in_progress"
+    if _BLOCKED_RE.search(question):
+        return "blocked"
+    return None
+
+
+def _has_update_intent(question: str) -> bool:
+    """Return True if the question looks like a status update command (not a question)."""
+    if question.strip().endswith("?") or _INTERROGATIVE_RE.match(question):
+        return False
+    return _detect_status_from_question(question) is not None
 
 
 _GITHUB_UPDATE_KEYWORDS = {
