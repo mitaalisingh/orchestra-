@@ -433,6 +433,7 @@ def stream_answer(
     project_id: str | None = None,
     github_username: str | None = None,
     user_id: str | None = None,
+    pending_action: dict | None = None,
 ):
     """Retrieve context in parallel, then stream Gemini's answer chunk by chunk.
 
@@ -444,10 +445,28 @@ def stream_answer(
     {"error": "message", "status": <code>} so the frontend can display them
     even though HTTP headers are already sent by the time we fail.
     """
+    # If the user is confirming a pending action from the previous turn, execute it
+    # immediately and stream a confirmation — skip all retrieval and Gemini.
+    if pending_action and _CONFIRMATION_RE.match(question):
+        task_id = pending_action.get("task_id")
+        new_status = pending_action.get("new_status")
+        title = pending_action.get("title", task_id)
+        if task_id and new_status:
+            result = patch_task_status(task_id, new_status)
+            if result:
+                msg = f"Done — I've marked \"{title}\" as {new_status}."
+            else:
+                msg = f"Sorry, I couldn't update \"{title}\" — the task may no longer exist."
+            yield json.dumps({"chunk": msg})
+            updated_history = (conversation_history or []) + [{"question": question, "answer": msg}]
+            yield json.dumps({"done": True, "conversation_history": updated_history[-5:]})
+            return
+
     # Task update detection runs after the parallel fetch so semantic matching
     # can use the already-retrieved relevant_tasks (no extra API calls needed).
     task_update = None
     task_update_prompt = None
+    pending_action_out: dict | None = None
 
     want_graph = _needs_graph(question)
     want_events = _needs_events(question)
@@ -514,13 +533,14 @@ def stream_answer(
             distance = float(top.get("distance") or 1.0)
             if distance < _TASK_HIGH_CONFIDENCE:
                 task_id = top.get("id")
-                result = patch_task_status(task_id, new_status)
-                task_update = {
-                    "task_id": task_id,
-                    "new_status": new_status,
-                    "title": top.get("title"),
-                    "success": result is not None,
-                }
+                title = top.get("title", task_id)
+                pending_action_out = {"task_id": task_id, "new_status": new_status, "title": title}
+                task_update_prompt = (
+                    f"System: The user wants to mark \"{title}\" as {new_status}. "
+                    f"Ask for confirmation in one friendly sentence, e.g. "
+                    f"\"I'll mark '{title}' as {new_status} — shall I go ahead?\" "
+                    "Do not update anything yet."
+                )
             elif distance < _TASK_LOW_CONFIDENCE:
                 candidates = "\n".join(
                     f"- {t.get('title')} (ID: {t.get('id')})"
@@ -683,6 +703,8 @@ def stream_answer(
         done_payload["suggested_tasks"] = suggested_tasks
     if nav_action:
         done_payload["action"] = nav_action
+    if pending_action_out:
+        done_payload["pending_action"] = pending_action_out
     yield json.dumps(done_payload)
 
 
@@ -869,6 +891,12 @@ def _has_update_intent(question: str) -> bool:
     if question.strip().endswith("?") or _INTERROGATIVE_RE.match(question):
         return False
     return _detect_status_from_question(question) is not None
+
+
+_CONFIRMATION_RE = re.compile(
+    r'^\s*(?:yes|yeah|yep|yup|sure|go ahead|do it|confirm|ok|okay|sounds good|correct|right)\s*[.!]?\s*$',
+    re.IGNORECASE,
+)
 
 
 _GITHUB_UPDATE_KEYWORDS = {
