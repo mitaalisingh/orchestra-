@@ -583,12 +583,21 @@ def stream_answer(
             and not nav_action.get("project_id")):
         dest = nav_action.get("destination")
         nav_action = None
-        known = [name for name in project_names.values() if name]
-        projects_hint = f" The available projects are: {', '.join(known)}." if known else ""
-        task_update_prompt = (
-            f"System: The user wants to go to the {dest} page but hasn't said which project.{projects_hint} "
-            "Ask them which project they mean in one friendly sentence."
-        )
+        fuzzy = _fuzzy_project_match(question, project_names)
+        if fuzzy:
+            _fid, fname = fuzzy
+            matched_word = _find_matched_word(question, fname)
+            task_update_prompt = (
+                f"System: The user said '{matched_word}' which partially matches the project '{fname}'. "
+                f"Ask them in one friendly sentence: 'By \"{matched_word}\" did you mean {fname}?'"
+            )
+        else:
+            known = [name for name in project_names.values() if name]
+            projects_hint = f" The available projects are: {', '.join(known)}." if known else ""
+            task_update_prompt = (
+                f"System: The user wants to go to the {dest} page but hasn't said which project.{projects_hint} "
+                "Ask them which project they mean in one friendly sentence."
+            )
 
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
@@ -1100,6 +1109,34 @@ _PROJECT_DEST_MAP = {
     "blueprint": "blueprint",
     "modify": "blueprint",
 }
+
+
+_FUZZY_STOP = {"the", "a", "an", "to", "me", "my", "i", "and", "or", "of",
+               "for", "is", "in", "on", "take", "show", "open", "go", "want"}
+
+
+def _fuzzy_project_match(question: str, project_names: dict[str, str]) -> tuple[str, str] | None:
+    """Return (project_id, project_name) if a question word is a substring of a
+    project name — catches CamelCase names like 'PantryPal' when user says 'pantry'."""
+    q_words = [w for w in re.findall(r'\b\w+\b', question.lower())
+               if len(w) > 3 and w not in _FUZZY_STOP]
+    for pid, pname in project_names.items():
+        if not pname:
+            continue
+        pname_lower = pname.lower()
+        for word in q_words:
+            if word in pname_lower and word != pname_lower:
+                return pid, pname
+    return None
+
+
+def _find_matched_word(question: str, project_name: str) -> str:
+    """Return the question word that partially matched the project name."""
+    pname_lower = project_name.lower()
+    for word in re.findall(r'\b\w+\b', question.lower()):
+        if len(word) > 3 and word not in _FUZZY_STOP and word in pname_lower and word != pname_lower:
+            return word
+    return question
 
 
 def _phrase_present(phrase: str, q: str) -> bool:
