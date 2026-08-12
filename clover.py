@@ -769,7 +769,7 @@ def stream_answer(
     # Don't suggest tasks for navigation requests — they'd be irrelevant noise.
     suggested_tasks = [] if nav_action else [
         {"id": t.get("id"), "title": t.get("title"), "project_id": t.get("project_id")}
-        for t in relevant_tasks
+        for t in relevant_tasks[:5]
         if t.get("id") and t.get("title")
     ]
 
