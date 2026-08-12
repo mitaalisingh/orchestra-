@@ -605,6 +605,13 @@ def stream_answer(
         project_id, project_names, all_tasks=all_tasks,
     )
 
+    # Tell Gemini who "my"/"me"/"I" refers to so first-person questions ("what are
+    # my tasks") resolve instead of the model refusing for lack of a name.
+    for part in reversed(_identity_prompt_parts(
+        github_username, question, all_tasks, project_id, allowed_project_ids
+    )):
+        prompt_parts.insert(0, part)
+
     # A direct status/assignee lookup that matched nothing is a real "there are
     # none" answer — tell Gemini so it doesn't invent tasks to fill the silence.
     if empty_direct_lookup:
@@ -838,6 +845,77 @@ def retrieve_by_status_or_assignee(
         al = str(assignee).strip().lower()
         matches = [t for t in matches if str(t.get("assigned_to", "")).strip().lower() == al]
     return sorted(matches, key=lambda t: str(t.get("id", "")))[:25]
+
+
+# Matches first-person questions about the user's own work ("what are my tasks",
+# "what am I working on", "assigned to me", "my workload"). Needs BOTH a first-
+# person pronoun AND a task/work word so it doesn't fire on every "I ...".
+_FIRST_PERSON_RE = re.compile(r"\b(?:my|mine|me|i)\b", re.IGNORECASE)
+_SELF_TASK_RE = re.compile(
+    r"\btasks?\b|\bworking\b|\bwork\b|\bassigned\b|\bdoing\b|\bto-?do\b|"
+    r"\bresponsible\b|\bplate\b|\bworkload\b|\bwork\s?load\b",
+    re.IGNORECASE,
+)
+
+
+def _is_first_person_task_q(question: str) -> bool:
+    """True if the user is asking about their OWN tasks/work."""
+    return bool(_FIRST_PERSON_RE.search(question) and _SELF_TASK_RE.search(question))
+
+
+def _identity_prompt_parts(
+    github_username: str | None,
+    question: str,
+    all_tasks: list[dict],
+    project_id: str | None,
+    allowed_project_ids: list[str] | None,
+) -> list[str]:
+    """Prompt notes that tell Gemini who "my"/"me"/"I" refers to.
+
+    Without this, a plain "what are my tasks" gives Gemini no identity to resolve
+    the pronoun against, so it either refuses or guesses. When we know the user we
+    inject their handle for every question; for a first-person task question we
+    also hand Gemini the user's project-scoped task list so it can pick out the
+    ones assigned to them (allowing for display-name variations) rather than
+    guessing from the semantic-nearest few.
+    """
+    first_person = _is_first_person_task_q(question)
+    if github_username:
+        parts = [
+            f"User identity: you are talking to {github_username} (their GitHub "
+            "username — the assigned_to field on tasks may show their display name "
+            'or a close variation of it). When the user says "my", "me", "mine", '
+            f"or \"I\", they mean tasks assigned to {github_username}."
+        ]
+        if first_person and (project_id or allowed_project_ids):
+            scoped = _scope_tasks(all_tasks, project_id, allowed_project_ids)
+            slim = [
+                {
+                    "id": t.get("id"),
+                    "title": t.get("title"),
+                    "status": t.get("status"),
+                    "assigned_to": t.get("assigned_to"),
+                    "project_id": t.get("project_id"),
+                }
+                for t in scoped
+            ][:60]
+            parts.append(
+                "The user is asking about their own tasks. Below is the full task "
+                f"list for their project(s); list the ones assigned to {github_username} "
+                "(allow for display-name variations), grouped sensibly, and don't "
+                "invent tasks that aren't here:\n"
+                f"{json.dumps(slim, indent=2, ensure_ascii=False)}"
+            )
+        return parts
+    if first_person:
+        # We genuinely don't know who's asking — the request arrived without a
+        # user id/handle. Ask, but warmly, instead of a cold refusal.
+        return [
+            "The user is asking about their own tasks, but this request carried no "
+            "identity (no user id or GitHub handle). Warmly ask which name or handle "
+            "to look under — one short sentence, no lecture."
+        ]
+    return []
 
 
 _COMPLETED_RE = re.compile(r'\b(?:done|finish(?:ed)?|complet(?:ed)?|wrap(?:ped)?\s*up)\b', re.IGNORECASE)
