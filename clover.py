@@ -574,6 +574,22 @@ def stream_answer(
         or _detect_navigation(question, project_id, project_names)
     )
 
+    # Project-specific nav (workflow, kanban, team, etc.) with no project in context
+    # → ask which project rather than firing a broken action with project_id=null.
+    _PROJECT_SPECIFIC_DESTS = {"workflow", "tasks", "team", "activity", "blueprint"}
+    if (nav_action
+            and nav_action.get("type") == "navigate"
+            and nav_action.get("destination") in _PROJECT_SPECIFIC_DESTS
+            and not nav_action.get("project_id")):
+        dest = nav_action.get("destination")
+        nav_action = None
+        known = [name for name in project_names.values() if name]
+        projects_hint = f" The available projects are: {', '.join(known)}." if known else ""
+        task_update_prompt = (
+            f"System: The user wants to go to the {dest} page but hasn't said which project.{projects_hint} "
+            "Ask them which project they mean in one friendly sentence."
+        )
+
     client = genai.Client(api_key=api_key)
     prompt_parts = _build_prompt_parts(
         question, relevant_tasks, conversation_history, live_events, graph,
