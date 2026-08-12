@@ -50,11 +50,38 @@ def get_embedding(client: genai.Client, text: str) -> list[float]:
     raise ValueError("Unexpected embedding response format from Gemini.")
 
 
+def get_embeddings(client: genai.Client, texts: list[str], batch_size: int = 100) -> list[list[float]]:
+    """Embed many texts in as few Gemini calls as possible.
+
+    embed_content accepts a list of contents and returns one embedding per input,
+    so we send tasks in batches instead of one network round-trip per task. This is
+    the difference between ~6 calls and ~600 when (re)building the whole index — the
+    dominant cost of a cold-start / post-blueprint Clover query. Falls back to a
+    per-text call if a batch response comes back malformed.
+    """
+    out: list[list[float]] = []
+    for start in range(0, len(texts), batch_size):
+        chunk = texts[start:start + batch_size]
+        response = client.models.embed_content(model=EMBEDDING_MODEL, contents=chunk)
+        embeddings = getattr(response, "embeddings", None)
+        if embeddings and len(embeddings) == len(chunk):
+            for emb in embeddings:
+                values = getattr(emb, "values", None)
+                if values is None and isinstance(emb, dict):
+                    values = emb.get("values")
+                if values is None:
+                    raise ValueError("Unexpected embedding response format from Gemini.")
+                out.append(list(values))
+        else:
+            # Batch shape unexpected — fall back to one-at-a-time for this chunk.
+            out.extend(get_embedding(client, text) for text in chunk)
+    return out
+
+
 def index_tasks(collection, embed_client: genai.Client, tasks: list[dict]) -> None:
     """Index tasks into Chroma."""
     ids: list[str] = []
     documents: list[str] = []
-    embeddings: list[list[float]] = []
     metadatas: list[dict] = []
 
     for idx, task in enumerate(tasks):
@@ -62,7 +89,6 @@ def index_tasks(collection, embed_client: genai.Client, tasks: list[dict]) -> No
         text = task_to_text(task)
         ids.append(task_id)
         documents.append(text)
-        embeddings.append(get_embedding(embed_client, text))
         metadatas.append(
             {
                 "id": task_id,
@@ -78,6 +104,9 @@ def index_tasks(collection, embed_client: genai.Client, tasks: list[dict]) -> No
         )
 
     if ids:
+        # Embed all task texts in batches (few Gemini calls) rather than one call
+        # per task — this is what made a cold / post-blueprint re-index take a minute.
+        embeddings = get_embeddings(embed_client, documents)
         # upsert (not add) so a re-index updates changed tasks and adds new ones
         # in place, without tearing down the collection a reader may be querying.
         collection.upsert(
