@@ -103,6 +103,23 @@ def fetch_github_username(user_id: str) -> str | None:
         return None
 
 
+# Fetches the full user directory from the backend (best-effort).
+def fetch_users() -> list[dict]:
+    """Return the backend's user list, or [] on failure.
+
+    Each row carries the person's several handles — Orchestra `username`,
+    `github_username`, `discord_username` — which we use to recognise the current
+    user in task data no matter which handle the frontend sent us.
+    """
+    backend_url = os.getenv("BACKEND_URL", "https://orchestra-backend-30fy.onrender.com")
+    try:
+        resp = requests.get(f"{backend_url}/users", timeout=10)
+        resp.raise_for_status()
+        return resp.json().get("users", [])
+    except Exception:
+        return []
+
+
 # Fetches the list of project IDs the user belongs to from the backend.
 def fetch_user_project_ids(user_id: str) -> list[str]:
     """Return project IDs the user created or is a member of. Empty list on failure."""
@@ -434,6 +451,7 @@ def stream_answer(
     github_username: str | None = None,
     user_id: str | None = None,
     pending_action: dict | None = None,
+    user_name: str | None = None,
 ):
     """Retrieve context in parallel, then stream Gemini's answer chunk by chunk.
 
@@ -474,9 +492,15 @@ def stream_answer(
         want_graph = want_events = True
 
     empty_direct_lookup = False
+    self_prefiltered = False
+    have_identity_hint = bool(user_id or github_username or user_name)
     with ThreadPoolExecutor(max_workers=6) as pool:
         project_ids_future = pool.submit(fetch_user_project_ids, user_id) if user_id and not project_id else None
         gh_username_future = pool.submit(fetch_github_username, user_id) if user_id and not github_username else None
+        # Pull the user directory so we can recognise the caller in task data by any
+        # of their handles (Orchestra username / GitHub / Discord), not only the one
+        # the frontend happened to send. Only when we have something to resolve.
+        users_future = pool.submit(fetch_users) if have_identity_hint else None
         # Fetch the full task list ONCE per request, in parallel with the graph/
         # events/projects fetches. Everything below reuses it instead of each
         # re-querying Neo4j (search, graph scoping, capacity planning, prompt build).
@@ -489,6 +513,8 @@ def stream_answer(
         if gh_username_future:
             github_username = gh_username_future.result() or github_username
         all_tasks = tasks_data_future.result()
+        users = users_future.result() if users_future else []
+        identity = resolve_identity(user_id, github_username, user_name, users)
 
         # Status/assignee questions ("what's blocked?", "what is Isha working on?")
         # get a direct filter over the real task data — the full matching set, not
@@ -509,6 +535,27 @@ def stream_answer(
         else:
             relevant_tasks = direct_tasks
             empty_direct_lookup = len(direct_tasks) == 0
+
+        # First-person self-lookup: when the user asks about their own tasks and we
+        # can recognise them in the data by ANY of their handles, filter to exactly
+        # their tasks here rather than leaving the match to the model. This is what
+        # makes "what are my tasks" work when the GitHub handle (e.g. "ArnavXT")
+        # differs from the display name in assigned_to (e.g. "Arnav").
+        if (
+            not _has_update_intent(question)
+            and _is_first_person_task_q(question)
+            and identity and identity.get("cores")
+            and (project_id or allowed_project_ids)
+        ):
+            scoped_self = _scope_tasks(all_tasks, project_id, allowed_project_ids)
+            mine = [
+                t for t in scoped_self
+                if _assignee_matches_aliases(identity["cores"], t.get("assigned_to", ""))
+            ]
+            if mine:
+                relevant_tasks = sorted(mine, key=lambda t: str(t.get("id", "")))[:25]
+                empty_direct_lookup = False
+                self_prefiltered = True
 
         graph = graph_future.result() if graph_future else None
         live_events = events_future.result() if events_future else None
@@ -608,7 +655,8 @@ def stream_answer(
     # Tell Gemini who "my"/"me"/"I" refers to so first-person questions ("what are
     # my tasks") resolve instead of the model refusing for lack of a name.
     for part in reversed(_identity_prompt_parts(
-        github_username, question, all_tasks, project_id, allowed_project_ids
+        identity, question, all_tasks, project_id, allowed_project_ids,
+        prefiltered=self_prefiltered,
     )):
         prompt_parts.insert(0, part)
 
@@ -863,31 +911,133 @@ def _is_first_person_task_q(question: str) -> bool:
     return bool(_FIRST_PERSON_RE.search(question) and _SELF_TASK_RE.search(question))
 
 
-def _identity_prompt_parts(
+def _handle_core(s: str) -> str:
+    """Reduce a handle to its leading name token, lowercased.
+
+    Collapses the many shapes a person's handle takes to a common root so they all
+    line up with the short display name used in `assigned_to`:
+        "ArnavXT" -> "arnav"   (camelCase boundary)
+        "Arnav21" -> "arnav"   (stops at the digits)
+        "arnav.xo" -> "arnav"  (stops at the separator)
+        "Arnav"   -> "arnav"
+    """
+    s = str(s or "").strip()
+    if not s:
+        return ""
+    # First name-ish token with a lowercase tail, anywhere in the string — so a
+    # leading separator (".inaman") or digits don't swallow the whole handle.
+    m = re.search(r"[A-Za-z][a-z]+", s)  # camelCase-aware (stops at the next uppercase/digit)
+    if m:
+        return m.group(0).lower()
+    m = re.search(r"[A-Za-z]+", s)        # all-caps / single-letter fallback
+    return m.group(0).lower() if m else ""
+
+
+def _assignee_matches_aliases(alias_cores: set[str], assigned_to: str) -> bool:
+    """True if `assigned_to` names the same person as any of the user's handles.
+
+    Compares on the normalised root and allows a first-name-style prefix match
+    (so "prince" matches "princen") while staying strict enough (>=4 chars) not to
+    collide unrelated short names.
+    """
+    a = _handle_core(assigned_to)
+    if not a:
+        return False
+    for n in alias_cores:
+        if not n:
+            continue
+        if n == a:
+            return True
+        short, long = (a, n) if len(a) <= len(n) else (n, a)
+        if len(short) >= 4 and long.startswith(short):
+            return True
+    return False
+
+
+def resolve_identity(
+    user_id: str | None,
     github_username: str | None,
+    user_name: str | None,
+    users: list[dict],
+) -> dict | None:
+    """Resolve the caller to a display name + every handle they're known by.
+
+    We may be handed any one of user_id / github_username / user_name by the
+    frontend. We look the person up in the backend user directory to gather their
+    other handles too, so "my tasks" resolves whether their GitHub name matches
+    their Orchestra display name or not. Returns None when we have nothing to go on.
+    """
+    if not (user_id or github_username or user_name):
+        return None
+
+    seeds = [x for x in (user_name, github_username) if x]
+    # Whatever the frontend sent (an id or any handle), find the directory row by
+    # matching it against ANY of the person's handle fields — id, username, GitHub,
+    # or Discord — then borrow all their other handles from that row.
+    provided = {str(v).strip().lower() for v in (user_id, github_username, user_name) if v}
+    row = None
+    if users and provided:
+        for u in users:
+            handles = {
+                str(u.get(k, "")).strip().lower()
+                for k in ("user_id", "username", "github_username", "discord_username")
+            }
+            handles.discard("")
+            if provided & handles:
+                row = u
+                break
+
+    raw: list[str] = list(seeds)
+    if row:
+        raw += [row.get("username"), row.get("github_username"), row.get("discord_username")]
+    raw = [str(x) for x in raw if x]
+    # de-dupe, preserve order (for the human-readable note)
+    raw = list(dict.fromkeys(raw))
+
+    cores = {_handle_core(x) for x in raw}
+    cores.discard("")
+
+    display = user_name or (row.get("username") if row else None) or github_username
+    if not display and not cores:
+        return None
+    return {"display": display, "aliases": raw, "cores": cores}
+
+
+def _identity_prompt_parts(
+    identity: dict | None,
     question: str,
     all_tasks: list[dict],
     project_id: str | None,
     allowed_project_ids: list[str] | None,
+    prefiltered: bool = False,
 ) -> list[str]:
     """Prompt notes that tell Gemini who "my"/"me"/"I" refers to.
 
-    Without this, a plain "what are my tasks" gives Gemini no identity to resolve
-    the pronoun against, so it either refuses or guesses. When we know the user we
-    inject their handle for every question; for a first-person task question we
-    also hand Gemini the user's project-scoped task list so it can pick out the
-    ones assigned to them (allowing for display-name variations) rather than
-    guessing from the semantic-nearest few.
+    `identity` is the dict from resolve_identity() (display name + every handle the
+    user is known by), or None when the request carried no identity at all. When we
+    know the user we inject their name and handles for every question. For a first-
+    person task question we prefer a server-side match (`prefiltered=True`, the task
+    context already holds exactly their tasks); if that found nothing we instead
+    hand Gemini the project-scoped list so it can match by any handle itself.
     """
     first_person = _is_first_person_task_q(question)
-    if github_username:
+    if identity and identity.get("display"):
+        display = identity["display"]
+        aliases = identity.get("aliases") or []
+        alias_str = ", ".join(aliases) if aliases else display
         parts = [
-            f"User identity: you are talking to {github_username} (their GitHub "
-            "username — the assigned_to field on tasks may show their display name "
-            'or a close variation of it). When the user says "my", "me", "mine", '
-            f"or \"I\", they mean tasks assigned to {github_username}."
+            f"User identity: you are talking to {display}. In task data this person "
+            f"may appear as any of these handles: {alias_str} — the assigned_to field "
+            "usually uses a short display name (often the first name). When the user "
+            'says "my", "me", "mine", or "I", they mean tasks assigned to this person.'
         ]
-        if first_person and (project_id or allowed_project_ids):
+        if first_person and prefiltered:
+            parts.append(
+                "The Task context above has already been filtered to exactly this "
+                "user's tasks — list those (say plainly if there are none); don't "
+                "invent tasks that aren't there."
+            )
+        elif first_person and (project_id or allowed_project_ids):
             scoped = _scope_tasks(all_tasks, project_id, allowed_project_ids)
             slim = [
                 {
@@ -901,10 +1051,10 @@ def _identity_prompt_parts(
             ][:60]
             parts.append(
                 "The user is asking about their own tasks. Below is the full task "
-                f"list for their project(s); list the ones assigned to {github_username} "
-                "(allow for display-name variations), grouped sensibly, and don't "
-                "invent tasks that aren't here:\n"
-                f"{json.dumps(slim, indent=2, ensure_ascii=False)}"
+                "list for their project(s); list the ones assigned to this person by "
+                "matching any of the handles above against assigned_to (allow for "
+                "short/display-name variations), and don't invent tasks that aren't "
+                f"here:\n{json.dumps(slim, indent=2, ensure_ascii=False)}"
             )
         return parts
     if first_person:
@@ -912,8 +1062,8 @@ def _identity_prompt_parts(
         # user id/handle. Ask, but warmly, instead of a cold refusal.
         return [
             "The user is asking about their own tasks, but this request carried no "
-            "identity (no user id or GitHub handle). Warmly ask which name or handle "
-            "to look under — one short sentence, no lecture."
+            "identity (no user id or handle). Warmly ask which name or handle to "
+            "look under — one short sentence, no lecture."
         ]
     return []
 
